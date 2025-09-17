@@ -4,7 +4,7 @@ import { CheckCircle2, Clock, DollarSign } from "lucide-react";
 
 const Hero = () => {
   return (
-    <section className="hero-section relative min-h-[60vh] flex items-center py-16 text-white">
+    <section className="hero-section relative min-h-[40vh] flex items-center py-8 text-white">
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">

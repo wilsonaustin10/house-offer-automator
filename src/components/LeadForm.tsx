@@ -35,7 +35,7 @@ const LeadForm = () => {
   };
 
   return (
-    <section id="lead-form" className="py-16 bg-gray-50">
+    <section id="lead-form" className="py-8 bg-gray-50">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto">
           <Card className="lead-form">
