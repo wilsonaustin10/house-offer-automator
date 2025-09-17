@@ -2,41 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Real Estate Wholesaling Design System */
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 210 11% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 210 11% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 210 11% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Trust-building blue primary */
+    --primary: 210 100% 40%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 210 100% 35%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Warm gray secondary */
+    --secondary: 210 16% 95%;
+    --secondary-foreground: 210 11% 15%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 16% 95%;
+    --muted-foreground: 210 6% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 16% 95%;
+    --accent-foreground: 210 11% 15%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Success green for benefits */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Urgency orange for CTAs */
+    --urgency: 25 95% 53%;
+    --urgency-foreground: 0 0% 100%;
+    --urgency-hover: 25 95% 48%;
 
-    --radius: 0.5rem;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 95%;
+    --ring: 210 100% 40%;
+
+    --radius: 0.75rem;
+
+    /* Custom design tokens for real estate */
+    --hero-gradient: linear-gradient(135deg, hsl(210 100% 40%), hsl(210 100% 50%));
+    --trust-shadow: 0 10px 30px -10px hsl(210 100% 40% / 0.3);
+    --card-shadow: 0 4px 12px -2px hsl(210 20% 20% / 0.1);
+    --urgency-glow: 0 0 20px hsl(25 95% 53% / 0.4);
+    
+    /* Typography */
+    --font-heading: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
 
     --sidebar-background: 0 0% 98%;
 
@@ -94,6 +114,68 @@ All colors MUST be HSL.
   }
 }
 
+/* Component Classes */
+@layer components {
+  .hero-section {
+    background: var(--hero-gradient);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+    pointer-events: none;
+  }
+  
+  .trust-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s ease;
+  }
+  
+  .trust-card:hover {
+    box-shadow: var(--trust-shadow);
+    transform: translateY(-2px);
+  }
+  
+  .urgency-button {
+    background: linear-gradient(135deg, hsl(var(--urgency)), hsl(var(--urgency-hover)));
+    color: hsl(var(--urgency-foreground));
+    border: none;
+    box-shadow: var(--urgency-glow);
+    transition: all 0.3s ease;
+    animation: pulse-glow 2s infinite;
+  }
+  
+  .urgency-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px hsl(var(--urgency) / 0.4);
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: var(--urgency-glow); }
+    50% { box-shadow: 0 0 30px hsl(var(--urgency) / 0.6); }
+  }
+  
+  .success-badge {
+    background: hsl(var(--success));
+    color: hsl(var(--success-foreground));
+  }
+  
+  .lead-form {
+    background: hsl(var(--card));
+    box-shadow: var(--trust-shadow);
+    border: 2px solid hsl(var(--primary));
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -101,5 +183,11 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
   }
 }
