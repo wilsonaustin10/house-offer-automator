@@ -2,10 +2,21 @@ import { CheckCircle, Phone, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useGoogleTag } from "@/hooks/useGoogleTag";
 
 const ThankYou = () => {
+  const { trackConversion, isConfigured } = useGoogleTag();
+
+  useEffect(() => {
+    // Track conversion when thank you page loads
+    if (isConfigured) {
+      trackConversion();
+    }
+  }, [trackConversion, isConfigured]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
