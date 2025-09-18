@@ -178,7 +178,9 @@ async function sendToZapier(webhookUrl: string, leadPayload: any, supabase: any,
 
 async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload: any, supabase: any, leadId: string) {
   try {
-    console.log('Creating GHL contact for location:', locationId);
+    console.log('=== GHL API Call Debug Info ===');
+    console.log('Location ID:', locationId);
+    console.log('API Key (first 10 chars):', apiKey ? apiKey.substring(0, 10) + '...' : 'NOT SET');
     
     // Go High Level API v2 Contact creation
     const ghlPayload = {
@@ -199,6 +201,9 @@ async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload
       ]
     };
 
+    console.log('GHL Payload:', JSON.stringify(ghlPayload, null, 2));
+    console.log('Making request to: https://services.leadconnectorhq.com/contacts/');
+
     const response = await fetch('https://services.leadconnectorhq.com/contacts/', {
       method: 'POST',
       headers: {
@@ -209,21 +214,67 @@ async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload
       body: JSON.stringify(ghlPayload),
     });
 
+    console.log('GHL Response Status:', response.status);
+    console.log('GHL Response Headers:', Object.fromEntries(response.headers.entries()));
+
+    const responseText = await response.text();
+    console.log('GHL Response Body:', responseText);
+
     if (response.ok) {
-      console.log('Successfully sent lead to Go High Level');
+      console.log('✅ Successfully sent lead to Go High Level');
+      
+      // Try to parse response as JSON to get contact ID
+      try {
+        const responseData = JSON.parse(responseText);
+        console.log('Created GHL Contact:', responseData);
+      } catch (parseError) {
+        console.log('Response was not JSON:', parseError);
+      }
+
       await supabase
         .from('leads')
         .update({
           ghl_sent: true,
-          ghl_sent_at: new Date().toISOString()
+          ghl_sent_at: new Date().toISOString(),
+          ghl_response: responseText
         })
         .eq('id', leadId);
     } else {
-      const errorText = await response.text();
-      console.error('Failed to send to Go High Level:', response.status, errorText);
+      console.error('❌ Failed to send to Go High Level');
+      console.error('Status:', response.status);
+      console.error('Response:', responseText);
+      
+      // Store error info in database
+      await supabase
+        .from('leads')
+        .update({
+          ghl_sent: false,
+          ghl_error: `Status: ${response.status}, Error: ${responseText}`,
+          ghl_sent_at: new Date().toISOString()
+        })
+        .eq('id', leadId);
     }
   } catch (error) {
-    console.error('Error sending to Go High Level:', error);
+    console.error('❌ Exception in sendToGoHighLevel:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Store error info in database
+    try {
+      await supabase
+        .from('leads')
+        .update({
+          ghl_sent: false,
+          ghl_error: `Exception: ${error.message}`,
+          ghl_sent_at: new Date().toISOString()
+        })
+        .eq('id', leadId);
+    } catch (dbError) {
+      console.error('Failed to update database with error:', dbError);
+    }
   }
 }
 
