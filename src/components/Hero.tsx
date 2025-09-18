@@ -97,18 +97,20 @@ const Hero = () => {
                 className="h-12"
               />
             </div>
-            <div className="flex items-start space-x-2 mt-4">
-              <input
-                type="checkbox"
-                id="smsConsent"
-                checked={formData.smsConsent}
-                onChange={(e) => handleInputChange('smsConsent', e.target.checked)}
-                className="mt-1"
-              />
-              <Label htmlFor="smsConsent" className="text-sm text-muted-foreground">
-                I consent to receive text messages about my cash offer. Standard message rates may apply.
-              </Label>
-            </div>
+            {formData.phone.trim() && (
+              <div className="flex items-start space-x-2 mt-4">
+                <input
+                  type="checkbox"
+                  id="smsConsent"
+                  checked={formData.smsConsent}
+                  onChange={(e) => handleInputChange('smsConsent', e.target.checked)}
+                  className="mt-1"
+                />
+                <Label htmlFor="smsConsent" className="text-sm text-muted-foreground">
+                  I agree to the Terms & Conditions and Privacy Policy. By submitting this form, you consent to receive SMS messages and/or emails and/or calls from Great Rock Renovations. Message frequency varies. To unsubscribe, follow the instructions provided in our communications. Msg & data rates may apply for SMS. Your information is secure and will not be sold to third parties. Text HELP for HELP, text STOP to cancel.
+                </Label>
+              </div>
+            )}
           </div>
         );
 
