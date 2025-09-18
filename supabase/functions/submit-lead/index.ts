@@ -208,13 +208,23 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
     console.log('GHL V2 Payload:', JSON.stringify(ghlPayload, null, 2));
     console.log('Making request to: https://rest.gohighlevel.com/v1/contacts/');
 
+    // Prepare headers for GHL V2
+    const ghlHeaders: Record<string, string> = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Version': '2021-07-28',
+    };
+
+    const locationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
+    console.log('Using Location-Id header:', locationId ? 'YES' : 'NO');
+    if (locationId) {
+      ghlHeaders['Location-Id'] = locationId;
+    }
+
     const response = await fetch('https://rest.gohighlevel.com/v1/contacts/', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Version': '2021-07-28',
-      },
+      headers: ghlHeaders,
       body: JSON.stringify(ghlPayload),
     });
 
