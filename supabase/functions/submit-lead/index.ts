@@ -6,6 +6,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to ensure background tasks run and logs are captured
+function schedule(task: Promise<any>) {
+  try {
+    // @ts-ignore - EdgeRuntime is available in Supabase edge runtime
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(task);
+      console.log('Background task scheduled with EdgeRuntime.waitUntil');
+      return;
+    }
+  } catch (_) {}
+  // Fallback: fire-and-forget with error capture
+  task.catch((e) => console.error('Background task error:', e));
+}
+
 interface LeadData {
   address: string;
   phone: string;
@@ -103,13 +118,11 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     // Handle Zapier webhook and Go High Level API in background
-    const backgroundTasks = [];
-
     // Send to Zapier webhook if configured
     const zapierWebhookUrl = Deno.env.get('ZAPIER_WEBHOOK_URL');
     if (zapierWebhookUrl && zapierWebhookUrl.trim() !== '') {
       console.log('Sending to Zapier webhook...');
-      backgroundTasks.push(sendToZapier(zapierWebhookUrl, leadPayload, supabase, lead.id));
+      schedule(sendToZapier(zapierWebhookUrl, leadPayload, supabase, lead.id));
     } else {
       console.log('Zapier webhook URL not configured, skipping...');
     }
@@ -122,19 +135,14 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('- API Key type:', ghlApiKey && ghlApiKey.startsWith('pit') ? 'Private Integration Token' : 'Other');
     
     if (ghlApiKey && ghlApiKey.trim() !== '') {
-      console.log('✅ Go High Level API configured, adding to background tasks...');
-      backgroundTasks.push(sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id));
+      console.log('✅ Go High Level API configured, scheduling background task...');
+      schedule(sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id));
     } else {
       console.log('❌ Go High Level API key not configured, skipping...');
       console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
     }
 
-    // Execute background tasks without waiting
-    if (backgroundTasks.length > 0) {
-      Promise.all(backgroundTasks).catch(error => {
-        console.error('Background task error:', error);
-      });
-    }
+
 
     return new Response(JSON.stringify({
       success: true,
