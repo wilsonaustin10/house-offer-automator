@@ -9,8 +9,7 @@ const Footer = () => {
             <h3 className="text-2xl font-bold">FastCash Homes</h3>
             <p className="text-primary-foreground/80 leading-relaxed">
               We're a local, family-owned business that has been helping homeowners 
-              sell their properties quickly and fairly for over 10 years. Licensed, 
-              bonded, and BBB accredited.
+              sell their properties quickly and fairly for over 10 years.
             </p>
             <div className="flex items-center space-x-2">
               
