@@ -128,18 +128,25 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send to Go High Level API if configured
-    const ghlApiKey = Deno.env.get('GHL_API_KEY');
+    const ghlApiKey = Deno.env.get('GHL_API_KEY')?.trim();
+    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
     
     console.log('GHL Configuration Check:');
     console.log('- API Key configured:', ghlApiKey ? 'YES' : 'NO');
-    console.log('- API Key type:', ghlApiKey && ghlApiKey.startsWith('pit') ? 'Private Integration Token' : 'Other');
+    console.log('- API Key prefix:', ghlApiKey ? ghlApiKey.slice(0, 15) + '...' : 'N/A');
+    console.log('- API Key type:', ghlApiKey && ghlApiKey.startsWith('pit') ? 'Private Integration Token' : 'Other/Unknown');
+    console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
+    console.log('- Location ID configured:', ghlLocationId ? 'YES' : 'NO');
+    console.log('- Location ID value:', ghlLocationId ? ghlLocationId.slice(0, 10) + '...' : 'N/A');
     
+    // Test GHL configuration first
     if (ghlApiKey && ghlApiKey.trim() !== '') {
       console.log('✅ Go High Level API configured, scheduling background task...');
+      // First test the configuration with ghl-diagnose
+      schedule(testGhlConfiguration(ghlApiKey, ghlLocationId, supabase, lead.id));
       schedule(sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id));
     } else {
       console.log('❌ Go High Level API key not configured, skipping...');
-      console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
     }
 
 
@@ -297,6 +304,45 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
     } catch (dbError) {
       console.error('Failed to update database with error:', dbError);
     }
+  }
+}
+
+async function testGhlConfiguration(apiKey: string, locationId: string | undefined, supabase: any, leadId: string) {
+  try {
+    console.log('🔍 Testing GHL configuration with ghl-diagnose function...');
+    
+    // Call the ghl-diagnose function to validate the current configuration
+    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/ghl-diagnose`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+      },
+    });
+
+    const result = await response.text();
+    console.log('🔍 GHL Diagnose Response Status:', response.status);
+    console.log('🔍 GHL Diagnose Response:', result);
+
+    // Try to parse and log the diagnosis
+    try {
+      const diagnosis = JSON.parse(result);
+      console.log('🔍 GHL Diagnosis Summary:', diagnosis.diagnosis || 'No diagnosis available');
+      console.log('🔍 API Key Status:', diagnosis.apiKey_present ? 'Present' : 'Missing');
+      console.log('🔍 API Key Prefix from Diagnose:', diagnosis.apiKey_prefix || 'N/A');
+      
+      // Update the lead record with diagnosis info
+      await supabase
+        .from('leads')
+        .update({
+          ghl_response: `Diagnosis: ${diagnosis.diagnosis || 'No diagnosis'}`,
+        })
+        .eq('id', leadId);
+    } catch (parseError) {
+      console.log('🔍 Could not parse diagnosis response as JSON');
+    }
+  } catch (error) {
+    console.error('🔍 Error testing GHL configuration:', error);
   }
 }
 
