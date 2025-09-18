@@ -43,83 +43,48 @@ serve(async (req: Request) => {
       ...(locationId ? { 'Location-Id': locationId } : {}),
     };
 
-    // Test both primary and fallback endpoints
+    // Test services.leadconnectorhq.com with and without /v1 to detect correct base
     const primaryBase = 'https://services.leadconnectorhq.com';
-    const fallbackBase = 'https://rest.gohighlevel.com';
 
-    // Test 1: Primary endpoint - locations
-    console.log('Testing PRIMARY: GET', primaryBase + '/v1/locations');
-    const primaryLocationsRes = await fetch(primaryBase + '/v1/locations', {
-      method: 'GET',
-      headers: baseHeaders,
-    });
-    const primaryLocationsText = await primaryLocationsRes.text();
-    console.log('Primary locations status:', primaryLocationsRes.status);
-    console.log('Primary locations body (first 200 chars):', primaryLocationsText.substring(0, 200));
-
-    // Test 2: Primary endpoint - contacts
-    console.log('Testing PRIMARY: GET', primaryBase + '/v1/contacts?limit=1');
-    const primaryContactsRes = await fetch(primaryBase + '/v1/contacts/?limit=1', {
+    console.log('Testing (NO /v1): GET', primaryBase + '/contacts/?limit=1');
+    const contactsNoV1Res = await fetch(primaryBase + '/contacts/?limit=1', {
       method: 'GET',
       headers: headersWithLocation,
     });
-    const primaryContactsText = await primaryContactsRes.text();
-    console.log('Primary contacts status:', primaryContactsRes.status);
-    console.log('Primary contacts body (first 200 chars):', primaryContactsText.substring(0, 200));
+    const contactsNoV1Text = await contactsNoV1Res.text();
+    console.log('Contacts (no /v1) status:', contactsNoV1Res.status);
+    console.log('Contacts (no /v1) body (first 200 chars):', contactsNoV1Text.substring(0, 200));
 
-    // Test 3: Fallback endpoint - locations
-    console.log('Testing FALLBACK: GET', fallbackBase + '/v1/locations');
-    const fallbackLocationsRes = await fetch(fallbackBase + '/v1/locations', {
-      method: 'GET',
-      headers: baseHeaders,
-    });
-    const fallbackLocationsText = await fallbackLocationsRes.text();
-    console.log('Fallback locations status:', fallbackLocationsRes.status);
-    console.log('Fallback locations body (first 200 chars):', fallbackLocationsText.substring(0, 200));
-
-    // Test 4: Fallback endpoint - contacts
-    console.log('Testing FALLBACK: GET', fallbackBase + '/v1/contacts?limit=1');
-    const fallbackContactsRes = await fetch(fallbackBase + '/v1/contacts/?limit=1', {
+    console.log('Testing (/v1): GET', primaryBase + '/v1/contacts/?limit=1');
+    const contactsV1Res = await fetch(primaryBase + '/v1/contacts/?limit=1', {
       method: 'GET',
       headers: headersWithLocation,
     });
-    const fallbackContactsText = await fallbackContactsRes.text();
-    console.log('Fallback contacts status:', fallbackContactsRes.status);
-    console.log('Fallback contacts body (first 200 chars):', fallbackContactsText.substring(0, 200));
-
-    // Parse JSON responses
-    let primaryLocationsJson: unknown = null;
-    let primaryContactsJson: unknown = null;
-    let fallbackLocationsJson: unknown = null;
-    let fallbackContactsJson: unknown = null;
-
-    try { primaryLocationsJson = JSON.parse(primaryLocationsText); } catch {}
-    try { primaryContactsJson = JSON.parse(primaryContactsText); } catch {}
-    try { fallbackLocationsJson = JSON.parse(fallbackLocationsText); } catch {}
-    try { fallbackContactsJson = JSON.parse(fallbackContactsText); } catch {}
+    const contactsV1Text = await contactsV1Res.text();
+    console.log('Contacts (/v1) status:', contactsV1Res.status);
+    console.log('Contacts (/v1) body (first 200 chars):', contactsV1Text.substring(0, 200));
 
     // Build diagnosis
     let diagnosis = 'OK';
-    let recommendedEndpoint = primaryBase;
+    let recommendedEndpoint = primaryBase + '/contacts';
 
-    // Check primary endpoint first
-    if (primaryLocationsRes.ok && primaryContactsRes.ok) {
-      diagnosis = 'All tests passed on PRIMARY endpoint (services.leadconnectorhq.com)';
-      recommendedEndpoint = primaryBase;
-    } else if (fallbackLocationsRes.ok && fallbackContactsRes.ok) {
-      diagnosis = 'Primary endpoint failed, but FALLBACK endpoint (rest.gohighlevel.com) works';
-      recommendedEndpoint = fallbackBase;
-    } else if (primaryLocationsRes.status === 401 || fallbackLocationsRes.status === 401) {
-      diagnosis = 'Unauthorized with GHL API. Verify the token value, ensure it is a Private Integration Token (pit-...), and that it has required scopes.';
-    } else if ((primaryContactsRes.status === 403 || fallbackContactsRes.status === 403) && !locationId) {
-      diagnosis = 'Forbidden for contacts without Location-Id. Set GHL_LOCATION_ID secret for the target subaccount.';
-    } else if (!primaryContactsRes.ok && !fallbackContactsRes.ok && locationId) {
-      diagnosis = 'Contacts endpoint failed on BOTH endpoints even with Location-Id. Check that the Location-Id belongs to the token\'s account and that scopes include contacts:write/read.';
+    if (contactsNoV1Res.ok) {
+      diagnosis = 'Contacts endpoint works WITHOUT /v1 (use services.leadconnectorhq.com/contacts)';
+      recommendedEndpoint = primaryBase + '/contacts';
+    } else if (contactsV1Res.ok) {
+      diagnosis = 'Contacts endpoint only works WITH /v1. For PIT-based tokens, prefer /contacts. Verify your token type and scopes.';
+      recommendedEndpoint = primaryBase + '/contacts';
+    } else if (contactsNoV1Res.status === 401 || contactsV1Res.status === 401) {
+      diagnosis = 'Unauthorized. Verify the API key (PIT pit-...) and required scopes.';
+    } else if ((contactsNoV1Res.status === 403 || contactsV1Res.status === 403) && !locationId) {
+      diagnosis = 'Forbidden. Missing Location-Id. Set the GHL_LOCATION_ID secret to your Sub-Account (Location) ID.';
+    } else if (contactsNoV1Res.status === 404 && contactsV1Res.status === 404) {
+      diagnosis = 'Both /contacts and /v1/contacts return 404. Likely incorrect base path or missing headers (Version, Location-Id).';
     } else {
-      diagnosis = 'Both primary and fallback endpoints failed. Check API key validity and permissions.';
+      diagnosis = 'Contacts endpoint failed. Check API key, Location-Id, and headers.';
     }
 
-    const anySuccess = primaryLocationsRes.ok || primaryContactsRes.ok || fallbackLocationsRes.ok || fallbackContactsRes.ok;
+    const anySuccess = contactsNoV1Res.ok || contactsV1Res.ok;
 
     return new Response(JSON.stringify({
       ok: anySuccess,
@@ -130,30 +95,18 @@ serve(async (req: Request) => {
       apiKey_length: apiKey?.length,
       location_id_present: !!locationId,
       tests: {
-        primary_locations: { 
-          url: primaryBase + '/v1/locations',
-          status: primaryLocationsRes.status, 
-          ok: primaryLocationsRes.ok, 
-          body: primaryLocationsJson ?? primaryLocationsText.substring(0, 300) 
+        contacts_no_v1: {
+          url: primaryBase + '/contacts/?limit=1',
+          status: contactsNoV1Res.status,
+          ok: contactsNoV1Res.ok,
+          body: (() => { try { return JSON.parse(contactsNoV1Text); } catch { return contactsNoV1Text.substring(0, 300); } })()
         },
-        primary_contacts: { 
-          url: primaryBase + '/v1/contacts',
-          status: primaryContactsRes.status, 
-          ok: primaryContactsRes.ok, 
-          body: primaryContactsJson ?? primaryContactsText.substring(0, 300) 
-        },
-        fallback_locations: { 
-          url: fallbackBase + '/v1/locations',
-          status: fallbackLocationsRes.status, 
-          ok: fallbackLocationsRes.ok, 
-          body: fallbackLocationsJson ?? fallbackLocationsText.substring(0, 300) 
-        },
-        fallback_contacts: { 
-          url: fallbackBase + '/v1/contacts',
-          status: fallbackContactsRes.status, 
-          ok: fallbackContactsRes.ok, 
-          body: fallbackContactsJson ?? fallbackContactsText.substring(0, 300) 
-        },
+        contacts_v1: {
+          url: primaryBase + '/v1/contacts/?limit=1',
+          status: contactsV1Res.status,
+          ok: contactsV1Res.ok,
+          body: (() => { try { return JSON.parse(contactsV1Text); } catch { return contactsV1Text.substring(0, 300); } })()
+        }
       },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (error) {

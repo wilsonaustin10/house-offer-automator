@@ -236,29 +236,17 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
       ghlHeaders['Location-Id'] = locationId;
     }
 
-    // Try primary endpoint first (services.leadconnectorhq.com)
-    const primaryUrl = 'https://services.leadconnectorhq.com/v1/contacts/';
-    const fallbackUrl = 'https://rest.gohighlevel.com/v1/contacts/';
-    
-    console.log('Making primary request to:', primaryUrl);
-    let response = await fetch(primaryUrl, {
+    // LeadConnector API (PIT) uses services.leadconnectorhq.com without /v1
+    const primaryUrl = 'https://services.leadconnectorhq.com/contacts/';
+
+    console.log('Making request to:', primaryUrl);
+    const response = await fetch(primaryUrl, {
       method: 'POST',
       headers: ghlHeaders,
       body: JSON.stringify(ghlPayload),
     });
 
-    let usedEndpoint = 'services.leadconnectorhq.com';
-
-    // If primary fails with 404 or 5xx, try fallback
-    if (!response.ok && (response.status === 404 || response.status >= 500)) {
-      console.log('Primary endpoint failed with', response.status, '- trying fallback:', fallbackUrl);
-      response = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: ghlHeaders,
-        body: JSON.stringify(ghlPayload),
-      });
-      usedEndpoint = 'rest.gohighlevel.com';
-    }
+    const usedEndpoint = 'services.leadconnectorhq.com';
 
     console.log('GHL V2 Response Status:', response.status);
     console.log('GHL V2 Endpoint Used:', usedEndpoint);
