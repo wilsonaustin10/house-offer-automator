@@ -271,7 +271,7 @@ const Hero = () => {
                   ✓ A+ BBB Rating
                 </div>
                 <div className="success-badge px-3 py-1 rounded-full text-sm font-semibold">
-                  ✓ 10+ Years Local
+                  Local Homebuyers
                 </div>
               </div>
               
