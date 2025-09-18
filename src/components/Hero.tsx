@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import heroImage from "@/assets/hero-house.jpg";
 import { CheckCircle2, Clock, DollarSign, MapPin, Phone, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Hero = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -41,9 +42,48 @@ const Hero = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/thank-you");
+    
+    try {
+      toast({
+        title: "Submitting your information...",
+        description: "Please wait while we process your request.",
+      });
+
+      const { data, error } = await supabase.functions.invoke('submit-lead', {
+        body: {
+          address: formData.address,
+          phone: formData.phone,
+          smsConsent: formData.smsConsent,
+          isListed: formData.isListed,
+          condition: formData.condition,
+          timeline: formData.timeline,
+          askingPrice: formData.askingPrice,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Success!",
+        description: "Your information has been submitted successfully. We'll be in touch soon!",
+      });
+      
+      navigate("/thank-you");
+    } catch (error) {
+      console.error('Lead submission error:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem submitting your information. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
