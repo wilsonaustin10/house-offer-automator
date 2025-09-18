@@ -22,6 +22,8 @@ export type Database = {
           created_at: string
           email: string
           first_name: string
+          ghl_error: string | null
+          ghl_response: string | null
           ghl_sent: boolean | null
           ghl_sent_at: string | null
           id: string
@@ -41,6 +43,8 @@ export type Database = {
           created_at?: string
           email: string
           first_name: string
+          ghl_error?: string | null
+          ghl_response?: string | null
           ghl_sent?: boolean | null
           ghl_sent_at?: string | null
           id?: string
@@ -60,6 +64,8 @@ export type Database = {
           created_at?: string
           email?: string
           first_name?: string
+          ghl_error?: string | null
+          ghl_response?: string | null
           ghl_sent?: boolean | null
           ghl_sent_at?: string | null
           id?: string

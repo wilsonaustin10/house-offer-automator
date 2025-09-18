@@ -117,11 +117,18 @@ const handler = async (req: Request): Promise<Response> => {
     // Send to Go High Level API if configured
     const ghlApiKey = Deno.env.get('GHL_API_KEY');
     const ghlLocationId = Deno.env.get('GHL_LOCATION_ID');
+    
+    console.log('GHL Configuration Check:');
+    console.log('- API Key configured:', ghlApiKey ? 'YES' : 'NO');
+    console.log('- Location ID configured:', ghlLocationId ? 'YES' : 'NO');
+    
     if (ghlApiKey && ghlApiKey.trim() !== '' && ghlLocationId && ghlLocationId.trim() !== '') {
-      console.log('Sending to Go High Level API...');
+      console.log('✅ Go High Level API configured, adding to background tasks...');
       backgroundTasks.push(sendToGoHighLevel(ghlApiKey, ghlLocationId, leadPayload, supabase, lead.id));
     } else {
-      console.log('Go High Level API key or location ID not configured, skipping...');
+      console.log('❌ Go High Level API key or location ID not configured, skipping...');
+      console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
+      console.log('- Location ID length:', ghlLocationId ? ghlLocationId.length : 0);
     }
 
     // Execute background tasks without waiting
