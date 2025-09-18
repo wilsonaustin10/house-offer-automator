@@ -200,6 +200,7 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'Version': '2021-07-28',
       },
       body: JSON.stringify(ghlPayload),
     });
