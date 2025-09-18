@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import heroImage from "@/assets/hero-house.jpg";
 import { CheckCircle2, Clock, DollarSign, MapPin, Phone, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
@@ -24,6 +25,7 @@ const Hero = () => {
     email: ''
   });
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const totalSteps = 4;
 
@@ -41,10 +43,7 @@ const Hero = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Form Submitted Successfully!",
-      description: "We'll contact you within 4 hours with your cash offer.",
-    });
+    navigate("/thank-you");
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
