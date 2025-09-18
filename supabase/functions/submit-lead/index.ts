@@ -116,19 +116,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send to Go High Level API if configured
     const ghlApiKey = Deno.env.get('GHL_API_KEY');
-    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID');
     
     console.log('GHL Configuration Check:');
     console.log('- API Key configured:', ghlApiKey ? 'YES' : 'NO');
-    console.log('- Location ID configured:', ghlLocationId ? 'YES' : 'NO');
+    console.log('- API Key type:', ghlApiKey && ghlApiKey.startsWith('pit') ? 'Private Integration Token' : 'Other');
     
-    if (ghlApiKey && ghlApiKey.trim() !== '' && ghlLocationId && ghlLocationId.trim() !== '') {
+    if (ghlApiKey && ghlApiKey.trim() !== '') {
       console.log('✅ Go High Level API configured, adding to background tasks...');
-      backgroundTasks.push(sendToGoHighLevel(ghlApiKey, ghlLocationId, leadPayload, supabase, lead.id));
+      backgroundTasks.push(sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id));
     } else {
-      console.log('❌ Go High Level API key or location ID not configured, skipping...');
+      console.log('❌ Go High Level API key not configured, skipping...');
       console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
-      console.log('- Location ID length:', ghlLocationId ? ghlLocationId.length : 0);
     }
 
     // Execute background tasks without waiting
@@ -183,15 +181,14 @@ async function sendToZapier(webhookUrl: string, leadPayload: any, supabase: any,
   }
 }
 
-async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload: any, supabase: any, leadId: string) {
+async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any, leadId: string) {
   try {
-    console.log('=== GHL API Call Debug Info ===');
-    console.log('Location ID:', locationId);
+    console.log('=== GHL API V2 Call Debug Info ===');
+    console.log('API Key type:', apiKey.startsWith('pit') ? 'Private Integration Token' : 'Other');
     console.log('API Key (first 10 chars):', apiKey ? apiKey.substring(0, 10) + '...' : 'NOT SET');
     
-    // Go High Level API v2 Contact creation
+    // Go High Level API V2 Contact creation (for Private Integration Tokens)
     const ghlPayload = {
-      locationId: locationId,
       firstName: leadPayload.contact.first_name,
       lastName: leadPayload.contact.last_name,
       email: leadPayload.contact.email,
@@ -208,10 +205,10 @@ async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload
       ]
     };
 
-    console.log('GHL Payload:', JSON.stringify(ghlPayload, null, 2));
-    console.log('Making request to: https://services.leadconnectorhq.com/contacts/');
+    console.log('GHL V2 Payload:', JSON.stringify(ghlPayload, null, 2));
+    console.log('Making request to: https://rest.gohighlevel.com/v1/contacts/');
 
-    const response = await fetch('https://services.leadconnectorhq.com/contacts/', {
+    const response = await fetch('https://rest.gohighlevel.com/v1/contacts/', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -221,19 +218,19 @@ async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload
       body: JSON.stringify(ghlPayload),
     });
 
-    console.log('GHL Response Status:', response.status);
-    console.log('GHL Response Headers:', Object.fromEntries(response.headers.entries()));
+    console.log('GHL V2 Response Status:', response.status);
+    console.log('GHL V2 Response Headers:', Object.fromEntries(response.headers.entries()));
 
     const responseText = await response.text();
-    console.log('GHL Response Body:', responseText);
+    console.log('GHL V2 Response Body:', responseText);
 
     if (response.ok) {
-      console.log('✅ Successfully sent lead to Go High Level');
+      console.log('✅ Successfully sent lead to Go High Level V2 API');
       
       // Try to parse response as JSON to get contact ID
       try {
         const responseData = JSON.parse(responseText);
-        console.log('Created GHL Contact:', responseData);
+        console.log('Created GHL V2 Contact:', responseData);
       } catch (parseError) {
         console.log('Response was not JSON:', parseError);
       }
@@ -247,7 +244,7 @@ async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload
         })
         .eq('id', leadId);
     } else {
-      console.error('❌ Failed to send to Go High Level');
+      console.error('❌ Failed to send to Go High Level V2 API');
       console.error('Status:', response.status);
       console.error('Response:', responseText);
       
@@ -262,7 +259,7 @@ async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload
         .eq('id', leadId);
     }
   } catch (error) {
-    console.error('❌ Exception in sendToGoHighLevel:', error);
+    console.error('❌ Exception in sendToGoHighLevel V2:', error);
     console.error('Error details:', {
       name: error.name,
       message: error.message,
