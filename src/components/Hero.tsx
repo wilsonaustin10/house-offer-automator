@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import heroImage from "@/assets/hero-house.jpg";
 import { CheckCircle2, Clock, DollarSign, MapPin, Phone, ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 
@@ -74,21 +75,13 @@ const Hero = () => {
         return (
           <div className="space-y-4">
             <h3 className="text-xl font-semibold text-center mb-4 text-foreground">Property Details</h3>
-            <div className="space-y-2">
-              <Label htmlFor="address" className="flex items-center space-x-1 text-foreground">
-                <MapPin className="w-4 h-4" />
-                <span>Property Address *</span>
-              </Label>
-              <Input
-                id="address"
-                type="text"
-                placeholder="123 Main St, City, State, ZIP"
-                value={formData.address}
-                onChange={(e) => handleInputChange('address', e.target.value)}
-                required
-                className="h-12"
-              />
-            </div>
+            <AddressAutocomplete
+              value={formData.address}
+              onChange={(address) => handleInputChange('address', address)}
+              placeholder="123 Main St, City, State, ZIP"
+              required
+              className="h-12"
+            />
             <div className="space-y-2">
               <Label htmlFor="phone" className="flex items-center space-x-1 text-foreground">
                 <Phone className="w-4 h-4" />
