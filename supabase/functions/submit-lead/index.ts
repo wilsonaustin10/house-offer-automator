@@ -116,11 +116,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send to Go High Level API if configured
     const ghlApiKey = Deno.env.get('GHL_API_KEY');
-    if (ghlApiKey && ghlApiKey.trim() !== '') {
+    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID');
+    if (ghlApiKey && ghlApiKey.trim() !== '' && ghlLocationId && ghlLocationId.trim() !== '') {
       console.log('Sending to Go High Level API...');
-      backgroundTasks.push(sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id));
+      backgroundTasks.push(sendToGoHighLevel(ghlApiKey, ghlLocationId, leadPayload, supabase, lead.id));
     } else {
-      console.log('Go High Level API key not configured, skipping...');
+      console.log('Go High Level API key or location ID not configured, skipping...');
     }
 
     // Execute background tasks without waiting
@@ -175,10 +176,13 @@ async function sendToZapier(webhookUrl: string, leadPayload: any, supabase: any,
   }
 }
 
-async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any, leadId: string) {
+async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload: any, supabase: any, leadId: string) {
   try {
+    console.log('Creating GHL contact for location:', locationId);
+    
     // Go High Level API v2 Contact creation
     const ghlPayload = {
+      locationId: locationId,
       firstName: leadPayload.contact.first_name,
       lastName: leadPayload.contact.last_name,
       email: leadPayload.contact.email,
@@ -215,7 +219,8 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
         })
         .eq('id', leadId);
     } else {
-      console.error('Failed to send to Go High Level:', response.status, await response.text());
+      const errorText = await response.text();
+      console.error('Failed to send to Go High Level:', response.status, errorText);
     }
   } catch (error) {
     console.error('Error sending to Go High Level:', error);
