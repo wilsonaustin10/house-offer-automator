@@ -15,4 +15,29 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'google-maps': ['@/utils/GooglePlacesService'],
+          'ui': [
+            '@/components/ui/button',
+            '@/components/ui/input',
+            '@/components/ui/card',
+            '@/components/ui/label',
+            '@/components/ui/radio-group',
+            '@/components/ui/select'
+          ]
+        }
+      }
+    },
+    target: 'es2020',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: mode === 'production',
+        drop_debugger: mode === 'production'
+      }
+    }
+  }
 }));
