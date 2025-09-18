@@ -310,9 +310,6 @@ const Hero = () => {
             <div className="space-y-2">
               <div className="flex items-center space-x-2 mb-2 lg:mb-4">
                 <div className="success-badge px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-semibold">
-                  ✓ A+ BBB Rating
-                </div>
-                <div className="success-badge px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-semibold">
                   Local Homebuyers
                 </div>
               </div>
