@@ -21,7 +21,11 @@ serve(async (req: Request) => {
     console.log('- API Key type:', apiKey && apiKey.startsWith('pit') ? 'Private Integration Token' : 'Other/Unknown');
     console.log('- API Key length:', apiKey ? apiKey.length : 0);
     console.log('- Location ID present:', locationId ? 'YES' : 'NO');
-    console.log('- Location ID value:', locationId ? locationId.slice(0, 10) + '...' : 'N/A');
+    console.log('- Location ID value:', locationId ? locationId.slice(0, 8) + '...' : 'N/A');
+    console.log('- Location ID header will be included:', locationId ? 'YES' : 'NO');
+    if (locationId && locationId.startsWith('pit')) {
+      console.log('⚠️  WARNING: Location ID looks like a PIT token, not a Location ID');
+    }
 
     if (!apiKey) {
       return new Response(JSON.stringify({
@@ -47,13 +51,14 @@ serve(async (req: Request) => {
     const primaryBase = 'https://services.leadconnectorhq.com';
 
     console.log('Testing (NO /v1): GET', primaryBase + '/contacts/?limit=1');
+    console.log('Headers include Location-Id:', !!locationId, locationId ? `(${locationId.slice(0, 8)}...)` : '');
     const contactsNoV1Res = await fetch(primaryBase + '/contacts/?limit=1', {
       method: 'GET',
       headers: headersWithLocation,
     });
     const contactsNoV1Text = await contactsNoV1Res.text();
     console.log('Contacts (no /v1) status:', contactsNoV1Res.status);
-    console.log('Contacts (no /v1) body (first 200 chars):', contactsNoV1Text.substring(0, 200));
+    console.log('Contacts (no /v1) body (first 300 chars):', contactsNoV1Text.substring(0, 300));
 
     console.log('Testing (/v1): GET', primaryBase + '/v1/contacts/?limit=1');
     const contactsV1Res = await fetch(primaryBase + '/v1/contacts/?limit=1', {
@@ -62,22 +67,65 @@ serve(async (req: Request) => {
     });
     const contactsV1Text = await contactsV1Res.text();
     console.log('Contacts (/v1) status:', contactsV1Res.status);
-    console.log('Contacts (/v1) body (first 200 chars):', contactsV1Text.substring(0, 200));
+    console.log('Contacts (/v1) body (first 300 chars):', contactsV1Text.substring(0, 300));
 
-    // Build diagnosis
+    // Test additional endpoints for better diagnostics
+    console.log('Testing GET /locations (list locations)');
+    const locationsRes = await fetch(primaryBase + '/locations/', {
+      method: 'GET',
+      headers: baseHeaders, // Don't include Location-Id for listing locations
+    });
+    const locationsText = await locationsRes.text();
+    console.log('Locations status:', locationsRes.status);
+    console.log('Locations body (first 300 chars):', locationsText.substring(0, 300));
+
+    // Test specific location details if Location ID is provided
+    let locationDetailsRes = null;
+    let locationDetailsText = '';
+    if (locationId) {
+      console.log(`Testing GET /locations/${locationId} (location details)`);
+      locationDetailsRes = await fetch(primaryBase + `/locations/${locationId}`, {
+        method: 'GET',
+        headers: baseHeaders,
+      });
+      locationDetailsText = await locationDetailsRes.text();
+      console.log('Location details status:', locationDetailsRes.status);
+      console.log('Location details body (first 300 chars):', locationDetailsText.substring(0, 300));
+    }
+
+    // Test token principal (who am I?)
+    console.log('Testing GET /users/me (token principal)');
+    const usersMeRes = await fetch(primaryBase + '/users/me', {
+      method: 'GET',
+      headers: baseHeaders,
+    });
+    const usersMeText = await usersMeRes.text();
+    console.log('Users/me status:', usersMeRes.status);
+    console.log('Users/me body (first 300 chars):', usersMeText.substring(0, 300));
+
+    // Build enhanced diagnosis
     let diagnosis = 'OK';
     let recommendedEndpoint = primaryBase + '/contacts';
 
-    if (contactsNoV1Res.ok) {
+    // Check for obvious Location ID format issues
+    if (locationId && locationId.startsWith('pit')) {
+      diagnosis = 'CRITICAL: Location ID appears to be a PIT token, not a Location ID. Please set GHL_LOCATION_ID to your actual Sub-Account (Location) ID.';
+    } else if (contactsNoV1Res.ok) {
       diagnosis = 'Contacts endpoint works WITHOUT /v1 (use services.leadconnectorhq.com/contacts)';
       recommendedEndpoint = primaryBase + '/contacts';
     } else if (contactsV1Res.ok) {
       diagnosis = 'Contacts endpoint only works WITH /v1. For PIT-based tokens, prefer /contacts. Verify your token type and scopes.';
       recommendedEndpoint = primaryBase + '/contacts';
     } else if (contactsNoV1Res.status === 401 || contactsV1Res.status === 401) {
-      diagnosis = 'Unauthorized. Verify the API key (PIT pit-...) and required scopes.';
+      diagnosis = 'Unauthorized. Verify the API key (PIT pit-...) and required scopes (contacts.write).';
     } else if ((contactsNoV1Res.status === 403 || contactsV1Res.status === 403) && !locationId) {
       diagnosis = 'Forbidden. Missing Location-Id. Set the GHL_LOCATION_ID secret to your Sub-Account (Location) ID.';
+    } else if ((contactsNoV1Res.status === 403 || contactsV1Res.status === 403) && locationId) {
+      if (locationsRes && locationsRes.ok) {
+        diagnosis = 'Token works for /locations but 403 for /contacts with Location-Id. Verify: 1) Location ID is correct, 2) PIT has contacts.write scope, 3) PIT has access to this location.';
+      } else {
+        diagnosis = 'Forbidden for both /contacts and /locations. Verify API key validity and scopes (contacts.write, locations.read).';
+      }
     } else if (contactsNoV1Res.status === 404 && contactsV1Res.status === 404) {
       diagnosis = 'Both /contacts and /v1/contacts return 404. Likely incorrect base path or missing headers (Version, Location-Id).';
     } else {
@@ -94,18 +142,40 @@ serve(async (req: Request) => {
       apiKey_prefix: apiKey?.slice(0, 3),
       apiKey_length: apiKey?.length,
       location_id_present: !!locationId,
+      location_id_first8: locationId?.slice(0, 8),
+      location_id_looks_like_pit: locationId?.startsWith('pit') || false,
       tests: {
         contacts_no_v1: {
           url: primaryBase + '/contacts/?limit=1',
           status: contactsNoV1Res.status,
           ok: contactsNoV1Res.ok,
+          headers_included_location_id: !!locationId,
           body: (() => { try { return JSON.parse(contactsNoV1Text); } catch { return contactsNoV1Text.substring(0, 300); } })()
         },
         contacts_v1: {
           url: primaryBase + '/v1/contacts/?limit=1',
           status: contactsV1Res.status,
           ok: contactsV1Res.ok,
+          headers_included_location_id: !!locationId,
           body: (() => { try { return JSON.parse(contactsV1Text); } catch { return contactsV1Text.substring(0, 300); } })()
+        },
+        locations_list: {
+          url: primaryBase + '/locations/',
+          status: locationsRes.status,
+          ok: locationsRes.ok,
+          body: (() => { try { return JSON.parse(locationsText); } catch { return locationsText.substring(0, 300); } })()
+        },
+        location_details: locationDetailsRes ? {
+          url: primaryBase + `/locations/${locationId}`,
+          status: locationDetailsRes.status,
+          ok: locationDetailsRes.ok,
+          body: (() => { try { return JSON.parse(locationDetailsText); } catch { return locationDetailsText.substring(0, 300); } })()
+        } : null,
+        users_me: {
+          url: primaryBase + '/users/me',
+          status: usersMeRes.status,
+          ok: usersMeRes.ok,
+          body: (() => { try { return JSON.parse(usersMeText); } catch { return usersMeText.substring(0, 300); } })()
         }
       },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

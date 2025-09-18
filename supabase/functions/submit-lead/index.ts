@@ -139,14 +139,34 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('- API Key type:', ghlApiKey && ghlApiKey.startsWith('pit') ? 'Private Integration Token' : 'Other/Unknown');
     console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
     console.log('- Location ID configured:', ghlLocationId ? 'YES' : 'NO');
-    console.log('- Location ID value:', ghlLocationId ? ghlLocationId.slice(0, 10) + '...' : 'N/A');
+    console.log('- Location ID first 8 chars:', ghlLocationId ? ghlLocationId.slice(0, 8) + '...' : 'N/A');
+    
+    // Validate Location ID format
+    if (ghlLocationId && ghlLocationId.startsWith('pit')) {
+      console.log('⚠️  WARNING: GHL_LOCATION_ID looks like a PIT token, not a Location ID!');
+      console.log('⚠️  This will cause 403 errors. Please set GHL_LOCATION_ID to your actual Sub-Account (Location) ID.');
+    }
     
     // Test GHL configuration first
     if (ghlApiKey && ghlApiKey.trim() !== '') {
       console.log('✅ Go High Level API configured, scheduling background task...');
-      // First test the configuration with ghl-diagnose
-      schedule(testGhlConfiguration(ghlApiKey, ghlLocationId, supabase, lead.id));
-      schedule(sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id));
+      // First test the configuration with ghl-diagnose, then conditionally call the API
+      schedule(async () => {
+        const diagnosis = await testGhlConfiguration(ghlApiKey, ghlLocationId, supabase, lead.id);
+        
+        // Only proceed with API call if diagnosis indicates it might work
+        if (diagnosis && (diagnosis.ok || !diagnosis.location_id_looks_like_pit)) {
+          console.log('🟢 Proceeding with GHL API call based on diagnosis');
+          await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
+        } else if (diagnosis?.location_id_looks_like_pit) {
+          console.log('🔴 Skipping GHL API call - Location ID is a PIT token');
+        } else if (diagnosis && diagnosis.diagnosis?.includes('403')) {
+          console.log('🔴 Skipping GHL API call - Diagnosis indicates 403 access issues');
+        } else {
+          console.log('🟡 Proceeding with GHL API call despite diagnosis concerns');
+          await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
+        }
+      });
     } else {
       console.log('❌ Go High Level API key not configured, skipping...');
     }
@@ -234,6 +254,23 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
 
     const locationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
     console.log('Using Location-Id header:', locationId ? 'YES' : 'NO');
+    console.log('Location-Id first 8 chars:', locationId ? locationId.slice(0, 8) + '...' : 'N/A');
+    
+    // Validate Location ID format before using it
+    if (locationId && locationId.startsWith('pit')) {
+      console.log('⚠️  CRITICAL: Location ID is a PIT token, not a Location ID! This will fail.');
+      // Update lead with validation error and skip API call
+      await supabase
+        .from('leads')
+        .update({
+          ghl_sent: false,
+          ghl_error: 'VALIDATION ERROR: GHL_LOCATION_ID appears to be a PIT token instead of a Location ID',
+          ghl_sent_at: new Date().toISOString()
+        })
+        .eq('id', leadId);
+      return;
+    }
+    
     if (locationId) {
       ghlHeaders['Location-Id'] = locationId;
     }
@@ -339,19 +376,34 @@ async function testGhlConfiguration(apiKey: string, locationId: string | undefin
       console.log('🔍 GHL Diagnosis Summary:', diagnosis.diagnosis || 'No diagnosis available');
       console.log('🔍 API Key Status:', diagnosis.apiKey_present ? 'Present' : 'Missing');
       console.log('🔍 API Key Prefix from Diagnose:', diagnosis.apiKey_prefix || 'N/A');
+      console.log('🔍 Location ID Looks Like PIT:', diagnosis.location_id_looks_like_pit ? 'YES' : 'NO');
+      console.log('🔍 Location ID First 8 Chars:', diagnosis.location_id_first8 || 'N/A');
+      
+      // Check if diagnose indicates a serious configuration issue
+      let diagnosisPrefix = 'Diagnosis: ';
+      if (diagnosis.location_id_looks_like_pit) {
+        diagnosisPrefix = 'CRITICAL CONFIG ERROR: ';
+      } else if (diagnosis.diagnosis?.includes('403') || diagnosis.diagnosis?.includes('Forbidden')) {
+        diagnosisPrefix = 'ACCESS ERROR: ';
+      }
       
       // Update the lead record with diagnosis info
       await supabase
         .from('leads')
         .update({
-          ghl_response: `Diagnosis: ${diagnosis.diagnosis || 'No diagnosis'}`,
+          ghl_response: `${diagnosisPrefix}${diagnosis.diagnosis || 'No diagnosis'}`,
         })
         .eq('id', leadId);
+        
+      // Return diagnosis info for use by sendToGoHighLevel
+      return diagnosis;
     } catch (parseError) {
       console.log('🔍 Could not parse diagnosis response as JSON');
+      return null;
     }
   } catch (error) {
     console.error('🔍 Error testing GHL configuration:', error);
+    return null;
   }
 }
 
