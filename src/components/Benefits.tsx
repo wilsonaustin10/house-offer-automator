@@ -90,15 +90,15 @@ const Benefits = () => {
             <h3 className="text-2xl font-bold text-primary mb-4">
               We Buy Houses in Any Situation
             </h3>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div className="text-muted-foreground">• Facing Foreclosure</div>
-              <div className="text-muted-foreground">• Inherited Property</div>
-              <div className="text-muted-foreground">• Divorce Settlement</div>
-              <div className="text-muted-foreground">• Job Relocation</div>
-              <div className="text-muted-foreground">• Financial Hardship</div>
-              <div className="text-muted-foreground">• Bad Tenants</div>
-              <div className="text-muted-foreground">• Medical Bills</div>
-              <div className="text-muted-foreground">• Any Other Reason</div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-base">
+              <div className="text-foreground font-semibold">• Facing Foreclosure</div>
+              <div className="text-foreground font-semibold">• Inherited Property</div>
+              <div className="text-foreground font-semibold">• Divorce Settlement</div>
+              <div className="text-foreground font-semibold">• Job Relocation</div>
+              <div className="text-foreground font-semibold">• Financial Hardship</div>
+              <div className="text-foreground font-semibold">• Bad Tenants</div>
+              <div className="text-foreground font-semibold">• Medical Bills</div>
+              <div className="text-foreground font-semibold">• Any Other Reason</div>
             </div>
           </div>
         </div>
