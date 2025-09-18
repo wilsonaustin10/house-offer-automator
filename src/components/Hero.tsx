@@ -107,7 +107,7 @@ const Hero = () => {
                   className="mt-1"
                 />
                 <Label htmlFor="smsConsent" className="text-sm text-muted-foreground">
-                  I agree to the Terms & Conditions and Privacy Policy. By submitting this form, you consent to receive SMS messages and/or emails and/or calls from Great Rock Renovations. Message frequency varies. To unsubscribe, follow the instructions provided in our communications. Msg & data rates may apply for SMS. Your information is secure and will not be sold to third parties. Text HELP for HELP, text STOP to cancel.
+                  I agree to the Terms & Conditions and Privacy Policy. By submitting this form, you consent to receive SMS messages and/or emails and/or calls from FastCash Homes. Message frequency varies. To unsubscribe, follow the instructions provided in our communications. Msg & data rates may apply for SMS. Your information is secure and will not be sold to third parties. Text HELP for HELP, text STOP to cancel.
                 </Label>
               </div>
             )}
