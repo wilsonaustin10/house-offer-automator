@@ -64,7 +64,7 @@ const Testimonials = () => {
               ))}
             </div>
             <span className="text-lg font-semibold">4.9/5 Average Rating</span>
-            <span className="text-muted-foreground">(500+ Reviews)</span>
+            <span className="text-muted-foreground">(Excellent Reviews)</span>
           </div>
         </div>
 
@@ -110,14 +110,14 @@ const Testimonials = () => {
         <div className="text-center mt-12">
           <div className="bg-primary/5 p-8 rounded-2xl max-w-2xl mx-auto">
             <h3 className="text-2xl font-bold text-primary mb-4">
-              Join 500+ Happy Homeowners
+              Join Our Happy Homeowners
             </h3>
             <p className="text-muted-foreground mb-6">
               We've helped families in all situations sell their homes quickly and move on with their lives.
             </p>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-3xl font-bold text-primary">500+</div>
+                <div className="text-3xl font-bold text-primary">Many</div>
                 <div className="text-sm text-muted-foreground">Houses Purchased</div>
               </div>
               <div>

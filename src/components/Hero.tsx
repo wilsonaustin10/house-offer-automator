@@ -297,7 +297,7 @@ const Hero = () => {
             </div>
             
             <div className="flex items-center space-x-4 text-sm text-white/80">
-              <span>★★★★★ 500+ Happy Homeowners</span>
+              <span>★★★★★ Highly Rated Homebuyers</span>
               <span>•</span>
               <span>No Obligation • 100% Free</span>
             </div>

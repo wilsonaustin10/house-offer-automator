@@ -62,7 +62,7 @@ const Benefits = () => {
             Why Choose FastCash Homes?
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            We've helped over 500 homeowners sell their properties quickly and easily. 
+            We've helped many homeowners sell their properties quickly and easily. 
             Here's what makes us different from traditional real estate.
           </p>
         </div>
