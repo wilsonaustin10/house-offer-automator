@@ -67,6 +67,13 @@ const Testimonials = () => {
             <span className="text-muted-foreground">(500+ Reviews)</span>
           </div>
         </div>
+
+        <div className="text-center mb-8">
+          <p className="text-sm text-muted-foreground italic max-w-2xl mx-auto">
+            *These testimonials represent real customer situations and outcomes we have helped achieve. 
+            Individual experiences may vary and these are not direct quotes from specific customers.
+          </p>
+        </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {testimonials.map((testimonial, index) => (
