@@ -4,7 +4,7 @@ import {
   Clock, 
   Home, 
   XCircle, 
-  ShieldCheck, 
+  AlertTriangle, 
   Calendar,
   Users,
   FileText
@@ -33,9 +33,9 @@ const Benefits = () => {
       description: "Keep more money in your pocket - no agent fees, no closing costs, no hidden charges."
     },
     {
-      icon: <ShieldCheck className="w-8 h-8 text-urgency" />,
-      title: "Guaranteed Sale",
-      description: "No showings, no waiting, no uncertainty. When we make an offer, we close - guaranteed."
+      icon: <AlertTriangle className="w-8 h-8 text-urgency" />,
+      title: "Complex Situations Solved",
+      description: "Messy titles, liens, estate issues, or other complications? We specialize in closing deals others can't."
     },
     {
       icon: <Calendar className="w-8 h-8 text-urgency" />,
