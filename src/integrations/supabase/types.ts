@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leads: {
+        Row: {
+          address: string
+          asking_price: string | null
+          condition: string | null
+          created_at: string
+          email: string
+          first_name: string
+          ghl_sent: boolean | null
+          ghl_sent_at: string | null
+          id: string
+          is_listed: string | null
+          last_name: string
+          phone: string
+          sms_consent: boolean
+          timeline: string | null
+          updated_at: string
+          zapier_sent: boolean | null
+          zapier_sent_at: string | null
+        }
+        Insert: {
+          address: string
+          asking_price?: string | null
+          condition?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          ghl_sent?: boolean | null
+          ghl_sent_at?: string | null
+          id?: string
+          is_listed?: string | null
+          last_name: string
+          phone: string
+          sms_consent?: boolean
+          timeline?: string | null
+          updated_at?: string
+          zapier_sent?: boolean | null
+          zapier_sent_at?: string | null
+        }
+        Update: {
+          address?: string
+          asking_price?: string | null
+          condition?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          ghl_sent?: boolean | null
+          ghl_sent_at?: string | null
+          id?: string
+          is_listed?: string | null
+          last_name?: string
+          phone?: string
+          sms_consent?: boolean
+          timeline?: string | null
+          updated_at?: string
+          zapier_sent?: boolean | null
+          zapier_sent_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
