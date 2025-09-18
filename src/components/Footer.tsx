@@ -1,9 +1,7 @@
 import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
 const Footer = () => {
-  return (
-    <footer className="bg-primary text-primary-foreground">
+  return <footer className="bg-primary text-primary-foreground">
       <div className="container mx-auto px-4 py-12">
         <div className="grid md:grid-cols-3 gap-8">
           {/* Company Info */}
@@ -15,12 +13,8 @@ const Footer = () => {
               bonded, and BBB accredited.
             </p>
             <div className="flex items-center space-x-2">
-              <div className="bg-success px-3 py-1 rounded-full text-xs font-semibold">
-                A+ BBB Rating
-              </div>
-              <div className="bg-success px-3 py-1 rounded-full text-xs font-semibold">
-                Licensed & Bonded
-              </div>
+              
+              
             </div>
           </div>
           
@@ -71,18 +65,13 @@ const Footer = () => {
             </p>
             
             <div className="space-y-3">
-              <Button 
-                className="urgency-button w-full font-semibold py-3"
-                onClick={() => document.getElementById('lead-form')?.scrollIntoView({ behavior: 'smooth' })}
-              >
+              <Button className="urgency-button w-full font-semibold py-3" onClick={() => document.getElementById('lead-form')?.scrollIntoView({
+              behavior: 'smooth'
+            })}>
                 Get My Cash Offer
               </Button>
               
-              <Button 
-                variant="outline"
-                className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
-                onClick={() => window.open('tel:+15551234567')}
-              >
+              <Button variant="outline" className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20" onClick={() => window.open('tel:+15551234567')}>
                 Call (555) 123-CASH
               </Button>
             </div>
@@ -120,8 +109,6 @@ const Footer = () => {
           </div>
         </div>
       </div>
-    </footer>
-  );
+    </footer>;
 };
-
 export default Footer;
