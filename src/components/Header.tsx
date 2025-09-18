@@ -5,9 +5,9 @@ const Header = () => {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="text-2xl font-bold text-primary">
+            <a href="/" className="text-2xl font-bold text-primary hover:text-primary/80 transition-colors">
               FastCash Homes
-            </div>
+            </a>
             
           </div>
           
