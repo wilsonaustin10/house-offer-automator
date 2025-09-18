@@ -38,10 +38,10 @@ const handler = async (req: Request): Promise<Response> => {
     const leadData: LeadData = await req.json();
     console.log('Received lead data:', { ...leadData, phone: '***', email: '***' });
     
-    // Initialize Supabase client
+    // Initialize Supabase client with service role key for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Validate required fields
     if (!leadData.address || !leadData.phone || !leadData.firstName || !leadData.lastName || !leadData.email) {
