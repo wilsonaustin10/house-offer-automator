@@ -15,16 +15,20 @@ serve(async (req: Request) => {
     const apiKey = Deno.env.get('GHL_API_KEY')?.trim();
     const locationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
 
-    console.log('Starting GHL diagnose...');
+    console.log('=== GHL DIAGNOSE - SECRET VALUES CHECK ===');
     console.log('- API Key present:', apiKey ? 'YES' : 'NO');
+    console.log('- API Key FULL VALUE (for debugging):', apiKey ? `"${apiKey}"` : 'N/A');
     console.log('- API Key prefix:', apiKey ? apiKey.slice(0, 15) + '...' : 'N/A');
     console.log('- API Key type:', apiKey && apiKey.startsWith('pit') ? 'Private Integration Token' : 'Other/Unknown');
     console.log('- API Key length:', apiKey ? apiKey.length : 0);
     console.log('- Location ID present:', locationId ? 'YES' : 'NO');
+    console.log('- Location ID FULL VALUE (for debugging):', locationId ? `"${locationId}"` : 'N/A');
     console.log('- Location ID value:', locationId ? locationId.slice(0, 8) + '...' : 'N/A');
     console.log('- Location ID header will be included:', locationId ? 'YES' : 'NO');
     if (locationId && locationId.startsWith('pit')) {
       console.log('⚠️  WARNING: Location ID looks like a PIT token, not a Location ID');
+      console.log('⚠️  Expected format: alphanumeric string (e.g., "GbOoP9eUwGI1Eb30Baex")');
+      console.log('⚠️  Current value starts with "pit-" which indicates API Key, not Location ID');
     }
 
     if (!apiKey) {

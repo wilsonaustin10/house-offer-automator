@@ -133,12 +133,14 @@ const handler = async (req: Request): Promise<Response> => {
     const ghlApiKey = Deno.env.get('GHL_API_KEY')?.trim();
     const ghlLocationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
     
-    console.log('GHL Configuration Check:');
+    console.log('=== GHL SECRET VALUES CHECK ===');
     console.log('- API Key configured:', ghlApiKey ? 'YES' : 'NO');
+    console.log('- API Key FULL VALUE (for debugging):', ghlApiKey ? `"${ghlApiKey}"` : 'N/A');
     console.log('- API Key prefix:', ghlApiKey ? ghlApiKey.slice(0, 15) + '...' : 'N/A');
     console.log('- API Key type:', ghlApiKey && ghlApiKey.startsWith('pit') ? 'Private Integration Token' : 'Other/Unknown');
     console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
     console.log('- Location ID configured:', ghlLocationId ? 'YES' : 'NO');
+    console.log('- Location ID FULL VALUE (for debugging):', ghlLocationId ? `"${ghlLocationId}"` : 'N/A');
     console.log('- Location ID first 8 chars:', ghlLocationId ? ghlLocationId.slice(0, 8) + '...' : 'N/A');
     
     // Validate Location ID format
@@ -147,24 +149,51 @@ const handler = async (req: Request): Promise<Response> => {
       console.log('⚠️  This will cause 403 errors. Please set GHL_LOCATION_ID to your actual Sub-Account (Location) ID.');
     }
     
-    // Test GHL configuration first
+    // Test GHL configuration and send to API
     if (ghlApiKey && ghlApiKey.trim() !== '') {
       console.log('✅ Go High Level API configured, scheduling background task...');
-      // First test the configuration with ghl-diagnose, then conditionally call the API
       schedule(async () => {
+        // Always run diagnosis first for logging
         const diagnosis = await testGhlConfiguration(ghlApiKey, ghlLocationId, supabase, lead.id);
         
-        // Only proceed with API call if diagnosis indicates it might work
-        if (diagnosis && (diagnosis.ok || !diagnosis.location_id_looks_like_pit)) {
-          console.log('🟢 Proceeding with GHL API call based on diagnosis');
-          await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
-        } else if (diagnosis?.location_id_looks_like_pit) {
-          console.log('🔴 Skipping GHL API call - Location ID is a PIT token');
-        } else if (diagnosis && diagnosis.diagnosis?.includes('403')) {
-          console.log('🔴 Skipping GHL API call - Diagnosis indicates 403 access issues');
+        console.log('🔍 DIAGNOSIS RESULT:', JSON.stringify(diagnosis, null, 2));
+        
+        // Enhanced decision logic - be more permissive but log everything
+        let shouldProceed = false;
+        let skipReason = '';
+        
+        if (!diagnosis) {
+          console.log('🟡 No diagnosis available - proceeding with API call anyway');
+          shouldProceed = true;
+        } else if (diagnosis.location_id_looks_like_pit) {
+          console.log('🔴 Location ID appears to be PIT token - this will likely fail');
+          skipReason = 'Location ID is a PIT token instead of Sub-Account ID';
+          shouldProceed = false;
+        } else if (diagnosis.ok) {
+          console.log('🟢 Diagnosis OK - proceeding with API call');
+          shouldProceed = true;
+        } else if (diagnosis.diagnosis?.includes('403') || diagnosis.diagnosis?.includes('Forbidden')) {
+          console.log('🟠 Diagnosis shows 403 errors - attempting anyway for testing');
+          shouldProceed = true; // Try anyway to capture the exact error
         } else {
-          console.log('🟡 Proceeding with GHL API call despite diagnosis concerns');
+          console.log('🟡 Uncertain diagnosis - proceeding with API call to test');
+          shouldProceed = true;
+        }
+        
+        if (shouldProceed) {
+          console.log('▶️  PROCEEDING WITH GHL API CALL');
           await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
+        } else {
+          console.log('⏸️  SKIPPING GHL API CALL:', skipReason);
+          // Update lead record with skip reason
+          await supabase
+            .from('leads')
+            .update({
+              ghl_sent: false,
+              ghl_error: `SKIPPED: ${skipReason}`,
+              ghl_sent_at: new Date().toISOString()
+            })
+            .eq('id', lead.id);
         }
       });
     } else {
