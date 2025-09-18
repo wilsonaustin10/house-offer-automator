@@ -303,54 +303,54 @@ const Hero = () => {
   };
 
   return (
-    <section id="lead-form" className="hero-section relative min-h-[40vh] flex items-center py-8 text-white">
+    <section id="lead-form" className="hero-section relative min-h-[40vh] flex items-center py-4 md:py-8 text-white">
       <div className="container mx-auto px-4 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
+        <div className="grid lg:grid-cols-2 gap-6 lg:gap-12 items-center">
+          <div className="space-y-4 lg:space-y-6 order-2 lg:order-1">
             <div className="space-y-2">
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="success-badge px-3 py-1 rounded-full text-sm font-semibold">
+              <div className="flex items-center space-x-2 mb-2 lg:mb-4">
+                <div className="success-badge px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-semibold">
                   ✓ A+ BBB Rating
                 </div>
-                <div className="success-badge px-3 py-1 rounded-full text-sm font-semibold">
+                <div className="success-badge px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-semibold">
                   Local Homebuyers
                 </div>
               </div>
               
-              <h1 className="text-4xl md:text-6xl font-bold leading-tight">
+              <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold leading-tight">
                 Sell Your House 
                 <span className="block text-urgency">Fast for Cash</span>
               </h1>
               
-              <p className="text-xl md:text-2xl text-white/90 leading-relaxed">
+              <p className="text-lg md:text-xl lg:text-2xl text-white/90 leading-relaxed">
                 Get a fair cash offer in 24 hours. No repairs, no fees, no hassles. 
                 Close in as little as 7 days on your timeline.
               </p>
             </div>
             
-            <div className="grid md:grid-cols-3 gap-4 py-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 lg:gap-4 py-3 lg:py-6">
               <div className="flex items-center space-x-2">
-                <DollarSign className="w-6 h-6 text-urgency" />
-                <span className="font-semibold">Cash Offers</span>
+                <DollarSign className="w-5 h-5 lg:w-6 lg:h-6 text-urgency" />
+                <span className="font-semibold text-sm lg:text-base">Cash Offers</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Clock className="w-6 h-6 text-urgency" />
-                <span className="font-semibold">7-Day Closing</span>
+                <Clock className="w-5 h-5 lg:w-6 lg:h-6 text-urgency" />
+                <span className="font-semibold text-sm lg:text-base">7-Day Closing</span>
               </div>
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-6 h-6 text-urgency" />
-                <span className="font-semibold">Any Condition</span>
+                <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 text-urgency" />
+                <span className="font-semibold text-sm lg:text-base">Any Condition</span>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4 text-sm text-white/80">
+            <div className="flex items-center space-x-4 text-xs lg:text-sm text-white/80">
               <span>★★★★★ Highly Rated Homebuyers</span>
               <span>•</span>
               <span>No Obligation • 100% Free</span>
             </div>
           </div>
           
-          <div className="max-w-md mx-auto lg:mx-0">
+          <div className="max-w-md mx-auto lg:mx-0 order-1 lg:order-2">
             <Card className="lead-form bg-background/95 backdrop-blur">
               <CardHeader className="text-center pb-4">
                 <CardTitle className="text-2xl font-bold text-primary mb-2">
