@@ -200,7 +200,7 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
   try {
     console.log('=== GHL API V2 Call Debug Info ===');
     console.log('API Key type:', apiKey.startsWith('pit') ? 'Private Integration Token' : 'Other');
-    console.log('API Key (first 10 chars):', apiKey ? apiKey.substring(0, 10) + '...' : 'NOT SET');
+    console.log('API Key (first 15 chars):', apiKey ? apiKey.substring(0, 15) + '...' : 'NOT SET');
     
     // Go High Level API V2 Contact creation (for Private Integration Tokens)
     const ghlPayload = {
@@ -221,7 +221,6 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
     };
 
     console.log('GHL V2 Payload:', JSON.stringify(ghlPayload, null, 2));
-    console.log('Making request to: https://rest.gohighlevel.com/v1/contacts/');
 
     // Prepare headers for GHL V2
     const ghlHeaders: Record<string, string> = {
@@ -237,17 +236,36 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
       ghlHeaders['Location-Id'] = locationId;
     }
 
-    const response = await fetch('https://rest.gohighlevel.com/v1/contacts/', {
+    // Try primary endpoint first (services.leadconnectorhq.com)
+    const primaryUrl = 'https://services.leadconnectorhq.com/v1/contacts/';
+    const fallbackUrl = 'https://rest.gohighlevel.com/v1/contacts/';
+    
+    console.log('Making primary request to:', primaryUrl);
+    let response = await fetch(primaryUrl, {
       method: 'POST',
       headers: ghlHeaders,
       body: JSON.stringify(ghlPayload),
     });
 
+    let usedEndpoint = 'services.leadconnectorhq.com';
+
+    // If primary fails with 404 or 5xx, try fallback
+    if (!response.ok && (response.status === 404 || response.status >= 500)) {
+      console.log('Primary endpoint failed with', response.status, '- trying fallback:', fallbackUrl);
+      response = await fetch(fallbackUrl, {
+        method: 'POST',
+        headers: ghlHeaders,
+        body: JSON.stringify(ghlPayload),
+      });
+      usedEndpoint = 'rest.gohighlevel.com';
+    }
+
     console.log('GHL V2 Response Status:', response.status);
+    console.log('GHL V2 Endpoint Used:', usedEndpoint);
     console.log('GHL V2 Response Headers:', Object.fromEntries(response.headers.entries()));
 
     const responseText = await response.text();
-    console.log('GHL V2 Response Body:', responseText);
+    console.log('GHL V2 Response Body (first 300 chars):', responseText.substring(0, 300));
 
     if (response.ok) {
       console.log('✅ Successfully sent lead to Go High Level V2 API');
@@ -255,9 +273,9 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
       // Try to parse response as JSON to get contact ID
       try {
         const responseData = JSON.parse(responseText);
-        console.log('Created GHL V2 Contact:', responseData);
+        console.log('Created GHL V2 Contact ID:', responseData.contact?.id || 'ID not found');
       } catch (parseError) {
-        console.log('Response was not JSON:', parseError);
+        console.log('Response was not JSON:', parseError.message);
       }
 
       await supabase
@@ -265,12 +283,13 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
         .update({
           ghl_sent: true,
           ghl_sent_at: new Date().toISOString(),
-          ghl_response: responseText
+          ghl_response: `Success via ${usedEndpoint}: ${responseText.substring(0, 500)}`
         })
         .eq('id', leadId);
     } else {
       console.error('❌ Failed to send to Go High Level V2 API');
       console.error('Status:', response.status);
+      console.error('Endpoint:', usedEndpoint);
       console.error('Response:', responseText);
       
       // Store error info in database
@@ -278,7 +297,7 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
         .from('leads')
         .update({
           ghl_sent: false,
-          ghl_error: `Status: ${response.status}, Error: ${responseText}`,
+          ghl_error: `${usedEndpoint} - Status: ${response.status}, Error: ${responseText}`,
           ghl_sent_at: new Date().toISOString()
         })
         .eq('id', leadId);
