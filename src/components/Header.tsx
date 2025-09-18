@@ -1,18 +1,14 @@
 import { Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
 const Header = () => {
-  return (
-    <header className="bg-white/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
+  return <header className="bg-white/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="text-2xl font-bold text-primary">
               FastCash Homes
             </div>
-            <div className="hidden md:block text-sm text-muted-foreground">
-              Licensed • Bonded • Local
-            </div>
+            
           </div>
           
           <div className="flex items-center space-x-4">
@@ -27,10 +23,9 @@ const Header = () => {
               </div>
             </div>
             
-            <Button 
-              className="urgency-button font-semibold px-6 py-2 rounded-lg"
-              onClick={() => document.getElementById('lead-form')?.scrollIntoView({ behavior: 'smooth' })}
-            >
+            <Button className="urgency-button font-semibold px-6 py-2 rounded-lg" onClick={() => document.getElementById('lead-form')?.scrollIntoView({
+            behavior: 'smooth'
+          })}>
               Get Cash Offer
             </Button>
           </div>
@@ -48,8 +43,6 @@ const Header = () => {
           </div>
         </div>
       </div>
-    </header>
-  );
+    </header>;
 };
-
 export default Header;
