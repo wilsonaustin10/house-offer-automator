@@ -55,7 +55,7 @@ const Testimonials = () => {
             What Our Customers Say
           </h2>
           <p className="text-xl text-muted-foreground">
-            Don't just take our word for it - hear from real homeowners we've helped
+            Don't just take our word for it - hear how we can help
           </p>
           <div className="flex items-center justify-center mt-6 space-x-2">
             <div className="flex text-yellow-400">
