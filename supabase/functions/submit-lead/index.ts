@@ -129,17 +129,26 @@ const handler = async (req: Request): Promise<Response> => {
     const ghlApiKey = Deno.env.get('GHL_API_KEY')?.trim();
     const ghlLocationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
     
-    if (ghlApiKey && ghlApiKey.trim() !== '') {
-      console.log('✅ Go High Level API configured, starting integration...');
+    console.log('🔍 GHL Configuration Check:', {
+      hasApiKey: !!ghlApiKey,
+      hasLocationId: !!ghlLocationId,
+      apiKeyLength: ghlApiKey ? ghlApiKey.length : 0,
+      apiKeyPrefix: ghlApiKey ? ghlApiKey.substring(0, 4) : 'none',
+      locationIdLength: ghlLocationId ? ghlLocationId.length : 0,
+      locationIdPrefix: ghlLocationId ? ghlLocationId.substring(0, 8) : 'none'
+    });
+    
+    if (ghlApiKey && ghlLocationId) {
+      console.log('✅ GHL configuration complete - starting integration for lead:', lead.id);
       
-      // Run GHL integration as background task with simplified error handling
+      // Run GHL integration as background task with enhanced validation
       runBackgroundTask(async () => {
         console.log('🚀 Starting GHL integration for lead:', lead.id);
         
-        // Quick validation
-        if (ghlLocationId && ghlLocationId.startsWith('pit-')) {
-          const errorMsg = 'Location ID appears to be a PIT token instead of a Sub-Account ID';
-          console.log('❌ Validation failed:', errorMsg);
+        // Enhanced validation
+        if (!ghlApiKey.startsWith('pit-')) {
+          const errorMsg = 'Invalid API key format - must be a Private Integration Token starting with "pit-"';
+          console.log('❌ API Key validation failed:', errorMsg);
           
           await supabase
             .from('leads')
@@ -152,12 +161,41 @@ const handler = async (req: Request): Promise<Response> => {
           return;
         }
         
-        // Send directly to GHL API
-        await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
+        if (ghlLocationId.startsWith('pit-')) {
+          const errorMsg = 'Location ID appears to be a PIT token instead of a Sub-Account ID';
+          console.log('❌ Location ID validation failed:', errorMsg);
+          
+          await supabase
+            .from('leads')
+            .update({
+              ghl_sent: false,
+              ghl_error: errorMsg,
+              ghl_sent_at: new Date().toISOString()
+            })
+            .eq('id', lead.id);
+          return;
+        }
+        
+        // Send directly to GHL API with location ID
+        await sendToGoHighLevel(ghlApiKey, ghlLocationId, leadPayload, supabase, lead.id);
         
       }, 'GHL Integration');
     } else {
-      console.log('❌ Go High Level API key not configured, skipping...');
+      const missingSecrets = [];
+      if (!ghlApiKey) missingSecrets.push('GHL_API_KEY');
+      if (!ghlLocationId) missingSecrets.push('GHL_LOCATION_ID');
+      
+      console.log('❌ GHL configuration incomplete - missing:', missingSecrets.join(', '));
+      
+      // Log this as an attempt so we can track configuration issues
+      await supabase
+        .from('leads')
+        .update({ 
+          ghl_sent: false, 
+          ghl_error: `Configuration Error: Missing ${missingSecrets.join(', ')}`,
+          ghl_sent_at: new Date().toISOString()
+        })
+        .eq('id', lead.id);
     }
 
     return new Response(JSON.stringify({
@@ -205,9 +243,19 @@ async function sendToZapier(webhookUrl: string, leadPayload: any, supabase: any,
   }
 }
 
-async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any, leadId: string) {
+async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload: any, supabase: any, leadId: string) {
   try {
     console.log('🔗 Starting GHL API call for lead:', leadId);
+    console.log('🔍 Final validation before API call:', {
+      hasApiKey: !!apiKey,
+      keyLength: apiKey.length,
+      keyPrefix: apiKey.substring(0, 4),
+      isPitFormat: apiKey.startsWith('pit-'),
+      hasLocationId: !!locationId,
+      locationLength: locationId.length,
+      locationPrefix: locationId.substring(0, 8),
+      looksLikePit: locationId.startsWith('pit-')
+    });
     
     // Go High Level API V2 Contact creation (for Private Integration Tokens)
     const ghlPayload = {
@@ -235,13 +283,11 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'Version': '2021-07-28',
+      'Location-Id': locationId
     };
 
-    const locationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
-    if (locationId) {
-      ghlHeaders['Location-Id'] = locationId;
-      console.log('🏢 Using Location-Id:', locationId.substring(0, 8) + '...');
-    }
+    console.log('🏢 Using Location-Id:', locationId);
+    console.log('🔑 Using API Key:', apiKey.substring(0, 8) + '...');
 
     // LeadConnector API (PIT) uses services.leadconnectorhq.com without /v1
     const apiUrl = 'https://services.leadconnectorhq.com/contacts/';
