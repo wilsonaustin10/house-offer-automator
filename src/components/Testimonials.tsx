@@ -118,7 +118,7 @@ const Testimonials = () => {
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-3xl font-bold text-primary">Everyday</div>
-                <div className="text-sm text-muted-foreground">we buy houses</div>
+                <div className="text-sm text-muted-foreground">We Buy Houses</div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-primary">$50M+</div>
