@@ -254,49 +254,56 @@ async function sendToGoHighLevel(apiKey: string, locationId: string, leadPayload
       throw new Error('Unsupported token type. Provide a PIT (starts with "pit-") or a JWT style Location API key.');
     }
 
-    if (isPit && !locationId) {
+    // Resolve locationId for request body
+    let bodyLocationId = (locationId || '').trim();
+    if (!bodyLocationId && isJwt) {
+      try {
+        const parts = apiKey.split('.');
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const json = JSON.parse(atob(base64));
+        bodyLocationId = json.location_id || json.locationId || '';
+        console.log('🧩 Extracted locationId from JWT:', bodyLocationId ? bodyLocationId.substring(0, 8) + '...' : '(none)');
+      } catch (e) {
+        console.log('⚠️ Could not decode JWT to extract locationId');
+      }
+    }
+
+    if (isPit && !bodyLocationId) {
       throw new Error('PIT token requires GHL_LOCATION_ID to be set.');
     }
-    if (isPit && locationId.startsWith('pit-')) {
+    if (isPit && bodyLocationId.startsWith('pit-')) {
       throw new Error('GHL_LOCATION_ID appears to be a PIT token, not a Location ID.');
     }
 
-    // Build payload
-    const ghlPayload = {
+    // Build minimal valid payload per docs (locationId required)
+    const ghlPayload: Record<string, any> = {
+      locationId: bodyLocationId,
       firstName: leadPayload.contact.first_name,
       lastName: leadPayload.contact.last_name,
       email: leadPayload.contact.email,
       phone: leadPayload.contact.phone,
       address1: leadPayload.property.address,
       tags: ['website-lead', 'cash-buyer'],
-      customFields: [
-        { key: 'property_condition', value: leadPayload.property.condition },
-        { key: 'timeline', value: leadPayload.property.timeline },
-        { key: 'asking_price', value: leadPayload.property.asking_price },
-        { key: 'is_listed', value: leadPayload.property.is_listed ? 'Yes' : 'No' },
-        { key: 'sms_consent', value: leadPayload.contact.sms_consent ? 'Yes' : 'No' },
-        { key: 'lead_source', value: leadPayload.source }
-      ]
+      source: leadPayload.source || 'public api'
     };
 
-    console.log('📤 Sending payload to GHL:', JSON.stringify(ghlPayload, null, 2));
+    console.log('📤 Payload for GHL:', JSON.stringify(ghlPayload, null, 2));
 
-    // Prepare headers & endpoint per token type
+    // Prepare headers & endpoint per docs
     const headers: Record<string, string> = {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
       Version: '2021-07-28',
     };
-    if (isPit || (locationId && locationId.length > 0)) {
-      headers['Location-Id'] = locationId;
+    if (isPit) {
+      headers['Location-Id'] = bodyLocationId;
     }
 
-    const apiUrl = isPit
-      ? 'https://services.leadconnectorhq.com/contacts/'
-      : 'https://services.leadconnectorhq.com/v1/contacts/';
+    const apiUrl = 'https://services.leadconnectorhq.com/contacts/';
 
-    console.log('🏢 Using Location-Id:', headers['Location-Id'] || '(none)');
+    console.log('🏢 Using Location-Id header:', headers['Location-Id'] || '(none)');
+    console.log('🏷️ Body locationId:', bodyLocationId || '(none)');
     console.log('🔑 Using API Key prefix:', apiKey.substring(0, 8) + '...');
     console.log('🌐 Making request to:', apiUrl);
 
