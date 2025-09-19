@@ -8,19 +8,14 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-// Helper to ensure background tasks run and logs are captured
-function schedule(task: Promise<any>) {
+// Simple background task handler with immediate error logging
+async function runBackgroundTask(task: () => Promise<void>, taskName: string) {
   try {
-    // @ts-ignore - EdgeRuntime is available in Supabase edge runtime
-    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-      // @ts-ignore
-      EdgeRuntime.waitUntil(task);
-      console.log('Background task scheduled with EdgeRuntime.waitUntil');
-      return;
-    }
-  } catch (_) {}
-  // Fallback: fire-and-forget with error capture
-  task.catch((e) => console.error('Background task error:', e));
+    await task();
+    console.log(`✅ ${taskName} completed successfully`);
+  } catch (error) {
+    console.error(`❌ ${taskName} failed:`, error);
+  }
 }
 
 interface LeadData {
@@ -119,12 +114,13 @@ const handler = async (req: Request): Promise<Response> => {
       source: 'website_form'
     };
 
-    // Handle Zapier webhook and Go High Level API in background
     // Send to Zapier webhook if configured
     const zapierWebhookUrl = Deno.env.get('ZAPIER_WEBHOOK_URL');
     if (zapierWebhookUrl && zapierWebhookUrl.trim() !== '') {
       console.log('Sending to Zapier webhook...');
-      schedule(sendToZapier(zapierWebhookUrl, leadPayload, supabase, lead.id));
+      runBackgroundTask(async () => {
+        await sendToZapier(zapierWebhookUrl, leadPayload, supabase, lead.id);
+      }, 'Zapier Integration');
     } else {
       console.log('Zapier webhook URL not configured, skipping...');
     }
@@ -133,113 +129,36 @@ const handler = async (req: Request): Promise<Response> => {
     const ghlApiKey = Deno.env.get('GHL_API_KEY')?.trim();
     const ghlLocationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
     
-    console.log('=== GHL SECRET VALUES CHECK ===');
-    console.log('- API Key configured:', ghlApiKey ? 'YES' : 'NO');
-    console.log('- API Key FULL VALUE (for debugging):', ghlApiKey ? `"${ghlApiKey}"` : 'N/A');
-    console.log('- API Key prefix:', ghlApiKey ? ghlApiKey.slice(0, 15) + '...' : 'N/A');
-    console.log('- API Key type:', ghlApiKey && ghlApiKey.startsWith('pit') ? 'Private Integration Token' : 'Other/Unknown');
-    console.log('- API Key length:', ghlApiKey ? ghlApiKey.length : 0);
-    console.log('- Location ID configured:', ghlLocationId ? 'YES' : 'NO');
-    console.log('- Location ID FULL VALUE (for debugging):', ghlLocationId ? `"${ghlLocationId}"` : 'N/A');
-    console.log('- Location ID first 8 chars:', ghlLocationId ? ghlLocationId.slice(0, 8) + '...' : 'N/A');
-    
-    // Test GHL configuration and send to API
     if (ghlApiKey && ghlApiKey.trim() !== '') {
-      console.log('✅ Go High Level API configured, scheduling background task...');
-      schedule(async () => {
-        try {
-          console.log('🚀 BACKGROUND TASK STARTED for GHL integration');
-          console.log('🚀 Lead ID:', lead.id);
-          console.log('🚀 Timestamp:', new Date().toISOString());
+      console.log('✅ Go High Level API configured, starting integration...');
+      
+      // Run GHL integration as background task with simplified error handling
+      runBackgroundTask(async () => {
+        console.log('🚀 Starting GHL integration for lead:', lead.id);
+        
+        // Quick validation
+        if (ghlLocationId && ghlLocationId.startsWith('pit-')) {
+          const errorMsg = 'Location ID appears to be a PIT token instead of a Sub-Account ID';
+          console.log('❌ Validation failed:', errorMsg);
           
-          // Quick validation first
-          if (ghlLocationId && ghlLocationId.startsWith('pit')) {
-            console.log('🔴 IMMEDIATE VALIDATION FAILED: Location ID is a PIT token!');
-            await supabase
-              .from('leads')
-              .update({
-                ghl_sent: false,
-                ghl_error: 'VALIDATION ERROR: GHL_LOCATION_ID appears to be a PIT token instead of a Location ID',
-                ghl_sent_at: new Date().toISOString()
-              })
-              .eq('id', lead.id);
-            console.log('🔴 Background task completed with validation error');
-            return;
-          }
-          
-          // Run diagnosis with timeout
-          console.log('🔍 Starting GHL diagnosis with 10 second timeout...');
-          let diagnosis = null;
-          try {
-            const diagnosisPromise = testGhlConfiguration(ghlApiKey, ghlLocationId, supabase, lead.id);
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Diagnosis timeout')), 10000)
-            );
-            
-            diagnosis = await Promise.race([diagnosisPromise, timeoutPromise]);
-            console.log('🔍 Diagnosis completed successfully:', !!diagnosis);
-          } catch (diagnosisError) {
-            console.log('🟡 Diagnosis failed or timed out:', diagnosisError.message);
-            console.log('🟡 Will proceed with API call anyway for testing');
-          }
-          
-          console.log('🔍 DIAGNOSIS RESULT:', diagnosis ? JSON.stringify(diagnosis, null, 2) : 'No diagnosis available');
-          
-          // Simplified decision logic - always try the API call unless we know it will definitely fail
-          let shouldProceed = true;
-          let skipReason = '';
-          
-          if (diagnosis && diagnosis.location_id_looks_like_pit === true) {
-            console.log('🔴 Diagnosis confirms Location ID is PIT token - skipping API call');
-            skipReason = 'Location ID is confirmed to be a PIT token instead of Sub-Account ID';
-            shouldProceed = false;
-          } else {
-            console.log('🟢 Proceeding with GHL API call - will capture any errors that occur');
-          }
-          
-          if (shouldProceed) {
-            console.log('▶️  STARTING GHL API CALL');
-            await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
-            console.log('▶️  GHL API CALL COMPLETED');
-          } else {
-            console.log('⏸️  SKIPPING GHL API CALL:', skipReason);
-            await supabase
-              .from('leads')
-              .update({
-                ghl_sent: false,
-                ghl_error: `SKIPPED: ${skipReason}`,
-                ghl_sent_at: new Date().toISOString()
-              })
-              .eq('id', lead.id);
-          }
-          
-          console.log('🏁 Background task completed successfully');
-        } catch (backgroundError) {
-          console.error('💥 CRITICAL ERROR in background task:', backgroundError);
-          console.error('💥 Error name:', backgroundError.name);
-          console.error('💥 Error message:', backgroundError.message);
-          console.error('💥 Error stack:', backgroundError.stack);
-          
-          // Try to update the lead record with the error
-          try {
-            await supabase
-              .from('leads')
-              .update({
-                ghl_sent: false,
-                ghl_error: `Background task error: ${backgroundError.message}`,
-                ghl_sent_at: new Date().toISOString()
-              })
-              .eq('id', lead.id);
-          } catch (updateError) {
-            console.error('💥 Failed to update lead record with background error:', updateError);
-          }
+          await supabase
+            .from('leads')
+            .update({
+              ghl_sent: false,
+              ghl_error: errorMsg,
+              ghl_sent_at: new Date().toISOString()
+            })
+            .eq('id', lead.id);
+          return;
         }
-      });
+        
+        // Send directly to GHL API
+        await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
+        
+      }, 'GHL Integration');
     } else {
       console.log('❌ Go High Level API key not configured, skipping...');
     }
-
-
 
     return new Response(JSON.stringify({
       success: true,
@@ -288,9 +207,7 @@ async function sendToZapier(webhookUrl: string, leadPayload: any, supabase: any,
 
 async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any, leadId: string) {
   try {
-    console.log('=== GHL API V2 Call Debug Info ===');
-    console.log('API Key type:', apiKey.startsWith('pit') ? 'Private Integration Token' : 'Other');
-    console.log('API Key (first 15 chars):', apiKey ? apiKey.substring(0, 15) + '...' : 'NOT SET');
+    console.log('🔗 Starting GHL API call for lead:', leadId);
     
     // Go High Level API V2 Contact creation (for Private Integration Tokens)
     const ghlPayload = {
@@ -310,7 +227,7 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
       ]
     };
 
-    console.log('GHL V2 Payload:', JSON.stringify(ghlPayload, null, 2));
+    console.log('📤 Sending payload to GHL:', JSON.stringify(ghlPayload, null, 2));
 
     // Prepare headers for GHL V2
     const ghlHeaders: Record<string, string> = {
@@ -321,56 +238,36 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
     };
 
     const locationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
-    console.log('Using Location-Id header:', locationId ? 'YES' : 'NO');
-    console.log('Location-Id first 8 chars:', locationId ? locationId.slice(0, 8) + '...' : 'N/A');
-    
-    // Validate Location ID format before using it
-    if (locationId && locationId.startsWith('pit')) {
-      console.log('⚠️  CRITICAL: Location ID is a PIT token, not a Location ID! This will fail.');
-      // Update lead with validation error and skip API call
-      await supabase
-        .from('leads')
-        .update({
-          ghl_sent: false,
-          ghl_error: 'VALIDATION ERROR: GHL_LOCATION_ID appears to be a PIT token instead of a Location ID',
-          ghl_sent_at: new Date().toISOString()
-        })
-        .eq('id', leadId);
-      return;
-    }
-    
     if (locationId) {
       ghlHeaders['Location-Id'] = locationId;
+      console.log('🏢 Using Location-Id:', locationId.substring(0, 8) + '...');
     }
 
     // LeadConnector API (PIT) uses services.leadconnectorhq.com without /v1
-    const primaryUrl = 'https://services.leadconnectorhq.com/contacts/';
+    const apiUrl = 'https://services.leadconnectorhq.com/contacts/';
+    console.log('🌐 Making request to:', apiUrl);
 
-    console.log('Making request to:', primaryUrl);
-    const response = await fetch(primaryUrl, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: ghlHeaders,
       body: JSON.stringify(ghlPayload),
     });
 
-    const usedEndpoint = 'services.leadconnectorhq.com';
-
-    console.log('GHL V2 Response Status:', response.status);
-    console.log('GHL V2 Endpoint Used:', usedEndpoint);
-    console.log('GHL V2 Response Headers:', Object.fromEntries(response.headers.entries()));
-
     const responseText = await response.text();
-    console.log('GHL V2 Response Body (first 300 chars):', responseText.substring(0, 300));
+    console.log('📥 GHL Response Status:', response.status);
+    console.log('📥 GHL Response Body:', responseText.substring(0, 500));
 
     if (response.ok) {
-      console.log('✅ Successfully sent lead to Go High Level V2 API');
+      console.log('✅ Successfully sent lead to Go High Level');
       
-      // Try to parse response as JSON to get contact ID
+      // Try to parse response to get contact ID
+      let contactId = 'unknown';
       try {
         const responseData = JSON.parse(responseText);
-        console.log('Created GHL V2 Contact ID:', responseData.contact?.id || 'ID not found');
+        contactId = responseData.contact?.id || responseData.id || 'unknown';
+        console.log('👤 Created GHL Contact ID:', contactId);
       } catch (parseError) {
-        console.log('Response was not JSON:', parseError.message);
+        console.log('⚠️ Could not parse GHL response as JSON');
       }
 
       await supabase
@@ -378,34 +275,26 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
         .update({
           ghl_sent: true,
           ghl_sent_at: new Date().toISOString(),
-          ghl_response: `Success via ${usedEndpoint}: ${responseText.substring(0, 500)}`
+          ghl_response: `Success - Contact ID: ${contactId} - ${responseText.substring(0, 300)}`
         })
         .eq('id', leadId);
     } else {
-      console.error('❌ Failed to send to Go High Level V2 API');
+      console.error('❌ Failed to send to Go High Level');
       console.error('Status:', response.status);
-      console.error('Endpoint:', usedEndpoint);
       console.error('Response:', responseText);
       
-      // Store error info in database
       await supabase
         .from('leads')
         .update({
           ghl_sent: false,
-          ghl_error: `${usedEndpoint} - Status: ${response.status}, Error: ${responseText}`,
+          ghl_error: `API Error - Status: ${response.status} - ${responseText.substring(0, 500)}`,
           ghl_sent_at: new Date().toISOString()
         })
         .eq('id', leadId);
     }
   } catch (error) {
-    console.error('❌ Exception in sendToGoHighLevel V2:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('💥 Exception in GHL API call:', error);
     
-    // Store error info in database
     try {
       await supabase
         .from('leads')
@@ -418,60 +307,6 @@ async function sendToGoHighLevel(apiKey: string, leadPayload: any, supabase: any
     } catch (dbError) {
       console.error('Failed to update database with error:', dbError);
     }
-  }
-}
-
-async function testGhlConfiguration(apiKey: string, locationId: string | undefined, supabase: any, leadId: string) {
-  try {
-    console.log('🔍 Testing GHL configuration with ghl-diagnose function...');
-    
-    // Call the ghl-diagnose function to validate the current configuration
-    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/ghl-diagnose`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-      },
-    });
-
-    const result = await response.text();
-    console.log('🔍 GHL Diagnose Response Status:', response.status);
-    console.log('🔍 GHL Diagnose Response:', result);
-
-    // Try to parse and log the diagnosis
-    try {
-      const diagnosis = JSON.parse(result);
-      console.log('🔍 GHL Diagnosis Summary:', diagnosis.diagnosis || 'No diagnosis available');
-      console.log('🔍 API Key Status:', diagnosis.apiKey_present ? 'Present' : 'Missing');
-      console.log('🔍 API Key Prefix from Diagnose:', diagnosis.apiKey_prefix || 'N/A');
-      console.log('🔍 Location ID Looks Like PIT:', diagnosis.location_id_looks_like_pit ? 'YES' : 'NO');
-      console.log('🔍 Location ID First 8 Chars:', diagnosis.location_id_first8 || 'N/A');
-      
-      // Check if diagnose indicates a serious configuration issue
-      let diagnosisPrefix = 'Diagnosis: ';
-      if (diagnosis.location_id_looks_like_pit) {
-        diagnosisPrefix = 'CRITICAL CONFIG ERROR: ';
-      } else if (diagnosis.diagnosis?.includes('403') || diagnosis.diagnosis?.includes('Forbidden')) {
-        diagnosisPrefix = 'ACCESS ERROR: ';
-      }
-      
-      // Update the lead record with diagnosis info
-      await supabase
-        .from('leads')
-        .update({
-          ghl_response: `${diagnosisPrefix}${diagnosis.diagnosis || 'No diagnosis'}`,
-        })
-        .eq('id', leadId);
-        
-      // Return diagnosis info for use by sendToGoHighLevel
-      return diagnosis;
-    } catch (parseError) {
-      console.log('🔍 Could not parse diagnosis response as JSON');
-      return null;
-    }
-  } catch (error) {
-    console.error('🔍 Error testing GHL configuration:', error);
-    return null;
   }
 }
 
