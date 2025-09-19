@@ -143,57 +143,96 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('- Location ID FULL VALUE (for debugging):', ghlLocationId ? `"${ghlLocationId}"` : 'N/A');
     console.log('- Location ID first 8 chars:', ghlLocationId ? ghlLocationId.slice(0, 8) + '...' : 'N/A');
     
-    // Validate Location ID format
-    if (ghlLocationId && ghlLocationId.startsWith('pit')) {
-      console.log('⚠️  WARNING: GHL_LOCATION_ID looks like a PIT token, not a Location ID!');
-      console.log('⚠️  This will cause 403 errors. Please set GHL_LOCATION_ID to your actual Sub-Account (Location) ID.');
-    }
-    
     // Test GHL configuration and send to API
     if (ghlApiKey && ghlApiKey.trim() !== '') {
       console.log('✅ Go High Level API configured, scheduling background task...');
       schedule(async () => {
-        // Always run diagnosis first for logging
-        const diagnosis = await testGhlConfiguration(ghlApiKey, ghlLocationId, supabase, lead.id);
-        
-        console.log('🔍 DIAGNOSIS RESULT:', JSON.stringify(diagnosis, null, 2));
-        
-        // Enhanced decision logic - be more permissive but log everything
-        let shouldProceed = false;
-        let skipReason = '';
-        
-        if (!diagnosis) {
-          console.log('🟡 No diagnosis available - proceeding with API call anyway');
-          shouldProceed = true;
-        } else if (diagnosis.location_id_looks_like_pit) {
-          console.log('🔴 Location ID appears to be PIT token - this will likely fail');
-          skipReason = 'Location ID is a PIT token instead of Sub-Account ID';
-          shouldProceed = false;
-        } else if (diagnosis.ok) {
-          console.log('🟢 Diagnosis OK - proceeding with API call');
-          shouldProceed = true;
-        } else if (diagnosis.diagnosis?.includes('403') || diagnosis.diagnosis?.includes('Forbidden')) {
-          console.log('🟠 Diagnosis shows 403 errors - attempting anyway for testing');
-          shouldProceed = true; // Try anyway to capture the exact error
-        } else {
-          console.log('🟡 Uncertain diagnosis - proceeding with API call to test');
-          shouldProceed = true;
-        }
-        
-        if (shouldProceed) {
-          console.log('▶️  PROCEEDING WITH GHL API CALL');
-          await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
-        } else {
-          console.log('⏸️  SKIPPING GHL API CALL:', skipReason);
-          // Update lead record with skip reason
-          await supabase
-            .from('leads')
-            .update({
-              ghl_sent: false,
-              ghl_error: `SKIPPED: ${skipReason}`,
-              ghl_sent_at: new Date().toISOString()
-            })
-            .eq('id', lead.id);
+        try {
+          console.log('🚀 BACKGROUND TASK STARTED for GHL integration');
+          console.log('🚀 Lead ID:', lead.id);
+          console.log('🚀 Timestamp:', new Date().toISOString());
+          
+          // Quick validation first
+          if (ghlLocationId && ghlLocationId.startsWith('pit')) {
+            console.log('🔴 IMMEDIATE VALIDATION FAILED: Location ID is a PIT token!');
+            await supabase
+              .from('leads')
+              .update({
+                ghl_sent: false,
+                ghl_error: 'VALIDATION ERROR: GHL_LOCATION_ID appears to be a PIT token instead of a Location ID',
+                ghl_sent_at: new Date().toISOString()
+              })
+              .eq('id', lead.id);
+            console.log('🔴 Background task completed with validation error');
+            return;
+          }
+          
+          // Run diagnosis with timeout
+          console.log('🔍 Starting GHL diagnosis with 10 second timeout...');
+          let diagnosis = null;
+          try {
+            const diagnosisPromise = testGhlConfiguration(ghlApiKey, ghlLocationId, supabase, lead.id);
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Diagnosis timeout')), 10000)
+            );
+            
+            diagnosis = await Promise.race([diagnosisPromise, timeoutPromise]);
+            console.log('🔍 Diagnosis completed successfully:', !!diagnosis);
+          } catch (diagnosisError) {
+            console.log('🟡 Diagnosis failed or timed out:', diagnosisError.message);
+            console.log('🟡 Will proceed with API call anyway for testing');
+          }
+          
+          console.log('🔍 DIAGNOSIS RESULT:', diagnosis ? JSON.stringify(diagnosis, null, 2) : 'No diagnosis available');
+          
+          // Simplified decision logic - always try the API call unless we know it will definitely fail
+          let shouldProceed = true;
+          let skipReason = '';
+          
+          if (diagnosis && diagnosis.location_id_looks_like_pit === true) {
+            console.log('🔴 Diagnosis confirms Location ID is PIT token - skipping API call');
+            skipReason = 'Location ID is confirmed to be a PIT token instead of Sub-Account ID';
+            shouldProceed = false;
+          } else {
+            console.log('🟢 Proceeding with GHL API call - will capture any errors that occur');
+          }
+          
+          if (shouldProceed) {
+            console.log('▶️  STARTING GHL API CALL');
+            await sendToGoHighLevel(ghlApiKey, leadPayload, supabase, lead.id);
+            console.log('▶️  GHL API CALL COMPLETED');
+          } else {
+            console.log('⏸️  SKIPPING GHL API CALL:', skipReason);
+            await supabase
+              .from('leads')
+              .update({
+                ghl_sent: false,
+                ghl_error: `SKIPPED: ${skipReason}`,
+                ghl_sent_at: new Date().toISOString()
+              })
+              .eq('id', lead.id);
+          }
+          
+          console.log('🏁 Background task completed successfully');
+        } catch (backgroundError) {
+          console.error('💥 CRITICAL ERROR in background task:', backgroundError);
+          console.error('💥 Error name:', backgroundError.name);
+          console.error('💥 Error message:', backgroundError.message);
+          console.error('💥 Error stack:', backgroundError.stack);
+          
+          // Try to update the lead record with the error
+          try {
+            await supabase
+              .from('leads')
+              .update({
+                ghl_sent: false,
+                ghl_error: `Background task error: ${backgroundError.message}`,
+                ghl_sent_at: new Date().toISOString()
+              })
+              .eq('id', lead.id);
+          } catch (updateError) {
+            console.error('💥 Failed to update lead record with background error:', updateError);
+          }
         }
       });
     } else {
