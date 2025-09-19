@@ -239,7 +239,7 @@ const Hero = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="askingPrice" className="text-foreground">What's your asking price? (optional)</Label>
+              <Label htmlFor="askingPrice" className="text-foreground">What's your asking price?</Label>
               <Input
                 id="askingPrice"
                 type="text"
