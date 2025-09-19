@@ -66,7 +66,6 @@ const About = () => {
           </section>
 
           <section className="mb-12">
-            <h2 className="text-3xl font-semibold text-primary mb-6">How It Works</h2>
             <div className="bg-primary/5 p-8 rounded-lg text-center">
               <h3 className="text-2xl font-semibold text-primary mb-4">Ready to Get Started?</h3>
               <p className="text-muted-foreground mb-6">
