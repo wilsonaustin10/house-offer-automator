@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { getEdgeFunctionConfig, logConfigStatus } from '../_shared/config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,13 +48,15 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     console.log('Starting lead submission process...');
     
+    // Load configuration using shared config module
+    const config = getEdgeFunctionConfig();
+    logConfigStatus();
+    
     const leadData: LeadData = await req.json();
     console.log('Received lead data:', { ...leadData, phone: '***', email: '***' });
     
     // Initialize Supabase client with service role key for database operations
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
     
     // Validate required fields
     if (!leadData.address || !leadData.phone || !leadData.firstName || !leadData.lastName || !leadData.email) {
@@ -115,19 +118,18 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     // Send to Zapier webhook if configured
-    const zapierWebhookUrl = Deno.env.get('ZAPIER_WEBHOOK_URL');
-    if (zapierWebhookUrl && zapierWebhookUrl.trim() !== '') {
+    if (config.integrations.zapier) {
       console.log('Sending to Zapier webhook...');
       runBackgroundTask(async () => {
-        await sendToZapier(zapierWebhookUrl, leadPayload, supabase, lead.id);
+        await sendToZapier(config.integrations.zapier!.webhookUrl, leadPayload, supabase, lead.id);
       }, 'Zapier Integration');
     } else {
       console.log('Zapier webhook URL not configured, skipping...');
     }
 
     // Send to Go High Level API if configured
-    const ghlApiKey = Deno.env.get('GHL_API_KEY')?.trim();
-    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID')?.trim();
+    const ghlApiKey = config.integrations.ghl?.apiKey;
+    const ghlLocationId = config.integrations.ghl?.locationId;
 
     const isJwtLike = !!ghlApiKey && /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(ghlApiKey);
     const isPit = !!ghlApiKey && ghlApiKey.startsWith('pit-');
